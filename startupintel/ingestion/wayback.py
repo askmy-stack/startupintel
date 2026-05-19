@@ -4,10 +4,16 @@ from __future__ import annotations
 
 import httpx
 from datetime import datetime, timedelta
-from waybackpy import WaybackMachineCDXServerAPI
 
 from startupintel.config import get_settings
 from startupintel.ingestion.base import BaseConnector
+
+try:
+    from waybackpy import WaybackMachineCDXServerAPI
+    WAYBACKPY_AVAILABLE = True
+except ImportError:
+    WAYBACKPY_AVAILABLE = False
+    WaybackMachineCDXServerAPI = None
 
 
 class WaybackConnector(BaseConnector):
@@ -20,6 +26,9 @@ class WaybackConnector(BaseConnector):
 
     async def fetch(self, url: str, from_date: str | None = None, to_date: str | None = None) -> dict:
         """Fetch historical snapshots for a URL."""
+        if not WAYBACKPY_AVAILABLE:
+            return {"found": False, "source": self.source_name, "error": "waybackpy not installed"}
+
         try:
             # Use waybackpy for CDX API access
             cdx_api = WaybackMachineCDXServerAPI(url, self.user_agent)

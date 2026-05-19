@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
-import whois
 from datetime import datetime
 
 from startupintel.ingestion.base import BaseConnector
+
+try:
+    import whois
+    WHOIS_AVAILABLE = True
+except ImportError:
+    WHOIS_AVAILABLE = False
+    whois = None
 
 
 class DomainWHOISConnector(BaseConnector):
@@ -15,6 +21,9 @@ class DomainWHOISConnector(BaseConnector):
 
     async def fetch(self, domain: str) -> dict:
         """Fetch WHOIS data for a domain."""
+        if not WHOIS_AVAILABLE:
+            return {"found": False, "source": self.source_name, "domain": domain, "error": "whois not installed"}
+
         try:
             w = whois.whois(domain)
 

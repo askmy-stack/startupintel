@@ -52,10 +52,19 @@ async def get_rag() -> FAISSRetriever | EmptyRetriever:
 
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
-RedisDep = Annotated[Depends(get_redis_client)]
-Neo4jDep = Annotated[Depends(get_neo4j)]
-LLMDep = Annotated[BaseLLMClient, Depends(get_llm)]
-RAGDep = Annotated[FAISSRetriever | EmptyRetriever, Depends(get_rag)]
+
+# For Redis, Neo4j, LLM, RAG - use simple Depends() in routes rather than Annotated
+def RedisDep():
+    return Depends(get_redis_client)
+
+def Neo4jDep():
+    return Depends(get_neo4j)
+
+def LLMDep():
+    return Depends(get_llm)
+
+def RAGDep():
+    return Depends(get_rag)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
