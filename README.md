@@ -8,10 +8,12 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-API-009688.svg)](https://fastapi.tiangolo.com)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791.svg)](https://www.postgresql.org)
 [![Neo4j](https://img.shields.io/badge/Neo4j-5.x-4581C3.svg)](https://neo4j.com)
+[![Groq](https://img.shields.io/badge/Groq-LLM-FF6B6B.svg)](https://groq.com)
+[![FAISS](https://img.shields.io/badge/FAISS-Retrieval-4CAF50.svg)](https://github.com/facebookresearch/faiss)
 
-StartupIntel is a startup intelligence platform that turns public startup signals into structured, cross-linked analysis. The long-term goal is eight specialized bots that ingest funding, headcount, hiring, product, graph, term sheet, PMF, and acquisition signals, then unify them into one intelligence layer.
+StartupIntel is a production-ready startup intelligence platform that turns public startup signals into structured, cross-linked analysis. It features 8 specialized ML bots that ingest funding, headcount, hiring, product, graph, term sheet, PMF, and acquisition signals, then unify them into one intelligence layer with LLM-powered synthesis.
 
-This repository currently ships the first working foundation: a FastAPI service, core database models, bot orchestration primitives, RunwayBot scoring, event topics, Docker setup, and tests.
+This repository now includes: full REST API, all 8 bot implementations, real data ingestion connectors, FAISS-based RAG retrieval, LLM clients for Groq/Ollama, Alembic migrations, comprehensive database seeding, and production-ready infrastructure.
 
 ## Why It Exists
 
@@ -27,23 +29,21 @@ StartupIntel is designed to make those signals composable:
 
 ## Current Status
 
-The project is in foundation mode, with deterministic bot cores that work without external API keys.
+The project is now production-ready with all core components implemented.
 
-| Area | Status |
-|---|---|
-| FastAPI application | Working |
-| `/health` endpoint | Working |
-| Demo `/startup/{id}/stress` endpoint | Working |
-| Core SQLAlchemy models | Working |
-| Config from `.env` | Working |
-| Base bot orchestration | Working |
-| All 8 bot scoring cores | Working |
-| Bot threshold event emission | Working with in-memory producer |
-| PostgreSQL, Redis, Neo4j helpers | Scaffolded |
-| Real ingestion connectors | Planned |
-| Kafka workers | Planned |
-| Airflow DAG bodies | Planned |
-| RAG corpus and LLM synthesis | Planned |
+| Area | Status | Notes |
+|---|---|---|
+| FastAPI application | Complete | Full REST API with CORS, auth, error handling |
+| CRUD endpoints (startups, investors, accelerators) | Complete | Pagination, search, filtering |
+| All 8 bot scoring cores | Complete | Real signal fetching + LLM synthesis |
+| Data ingestion connectors | Complete | Crunchbase, GitHub, LinkedIn, Twitter, ProductHunt, SEC EDGAR, Wayback, WHOIS, App Store, Job Boards |
+| RAG & LLM | Complete | FAISS + sentence-transformers, Groq + Ollama clients |
+| Database | Complete | Alembic migrations, comprehensive seeding script |
+| Event streaming | Foundation | In-memory producer ready for Kafka upgrade |
+| Authentication | Complete | JWT-based auth with configurable middleware |
+| Docker infrastructure | Working | docker-compose.yml with Postgres, Neo4j, Redis |
+| Airflow DAGs | Planned | Ready for implementation |
+| Slack integration | Planned | Ready for implementation |
 
 ## Bot Roadmap
 
@@ -148,22 +148,66 @@ Key groups:
 
 ## API Surface
 
-Implemented now:
+### Core Endpoints
 
 | Method | Route | Description |
 |---|---|---|
 | `GET` | `/health` | Service health |
-| `GET` | `/startup/{id}/stress` | Demo RunwayBot stress result |
+| `POST` | `/startup` | Create startup |
+| `GET` | `/startup` | List startups (paginated) |
+| `GET` | `/startup/search` | Search startups |
+| `GET` | `/startup/{id}` | Get startup details |
+| `PATCH` | `/startup/{id}` | Update startup |
+| `DELETE` | `/startup/{id}` | Delete startup |
 
-Planned:
+### Bot Analysis Endpoints
 
-| Area | Routes |
-|---|---|
-| Startup intelligence | `/startup/{id}`, `/startup/{id}/brief`, `/startup/search` |
-| Bot outputs | `/startup/{id}/obituary`, `/startup/{id}/pivot`, `/startup/{id}/pmf`, `/startup/{id}/acqui` |
-| Term sheets | `/termsheet`, `/termsheet/{id}`, `/termsheet/benchmark` |
-| Accelerators | `/accelerator/rankings`, `/accelerator/{id}`, `/accelerator/recommend` |
-| Investors | `/investor/{id}`, `/investor/rankings`, `/investor/{id}/network`, `/investor/recommend` |
+| Method | Route | Description |
+|---|---|---|
+| `GET` | `/startup/{id}/stress` | RunwayBot stress analysis |
+| `GET` | `/startup/{id}/obituary` | ObituaryBot failure pattern matching |
+| `GET` | `/startup/{id}/pmf` | PMFBot product-market fit analysis |
+| `GET` | `/startup/{id}/pivot` | PivotBot pivot detection |
+| `GET` | `/startup/{id}/acqui` | AcquiBot acqui-hire prediction |
+| `POST` | `/startup/{id}/run/{bot_name}` | Manually trigger bot run |
+
+### Investor Endpoints
+
+| Method | Route | Description |
+|---|---|---|
+| `POST` | `/investor` | Create investor |
+| `GET` | `/investor` | List investors |
+| `GET` | `/investor/{id}` | Get investor details |
+| `GET` | `/investor/{id}/network` | InvestorBot network analysis |
+| `DELETE` | `/investor/{id}` | Delete investor |
+
+### Accelerator Endpoints
+
+| Method | Route | Description |
+|---|---|---|
+| `POST` | `/accelerator` | Create accelerator |
+| `GET` | `/accelerator` | List accelerators |
+| `GET` | `/accelerator/{id}` | Get accelerator details |
+| `GET` | `/accelerator/{id}/ranking` | AcceleratorBot ROI ranking |
+| `GET` | `/accelerator/rankings/top` | Top accelerators by ROI |
+
+### Term Sheet Endpoints
+
+| Method | Route | Description |
+|---|---|---|
+| `POST` | `/termsheet/analyze` | Analyze term sheet text |
+| `POST` | `/termsheet/analyze-file` | Upload and analyze term sheet file |
+| `POST` | `/termsheet/startup/{id}/analyze` | Analyze for specific startup |
+| `GET` | `/termsheet/clauses/standards` | Market standard clause info |
+
+### Bot Management Endpoints
+
+| Method | Route | Description |
+|---|---|---|
+| `GET` | `/bot/status` | Bot system status |
+| `GET` | `/bot/{name}/results` | Bot results history |
+| `GET` | `/bot/{name}/stats` | Bot statistics |
+| `GET` | `/bot/scores/recent` | Recent scores across all bots |
 
 Interactive docs are available at `http://localhost:8000/docs` when the API is running.
 
@@ -242,16 +286,27 @@ StartupIntel is intended for public and permissioned data sources only. Do not c
 
 ## Roadmap
 
-1. Add real RunwayBot ingestion connectors.
-2. Add Alembic migration environment for the core models.
-3. Implement Kafka producer and consumer workers.
-4. Build ObituaryBot corpus ingestion and FAISS retrieval.
-5. Add TermBot PDF upload and clause scoring.
-6. Implement PivotBot and PMFBot signal pipelines.
-7. Add InvestorBot graph centrality scoring.
-8. Add AcquiBot model loading, SHAP summaries, and acquirer matching.
-9. Add unified brief synthesis and Slack digest.
-10. Add dashboard-ready response models and frontend surface.
+### Completed
+
+1. All 8 bot scoring cores with real signal fetching
+2. Complete data ingestion connectors (Crunchbase, GitHub, LinkedIn, Twitter, ProductHunt, SEC EDGAR, Wayback, WHOIS, App Store, Job Boards)
+3. FAISS-based RAG retrieval with sentence-transformers
+4. LLM clients for Groq and Ollama
+5. Full REST API with CRUD endpoints for startups, investors, accelerators
+6. Alembic migration environment for all models
+7. Comprehensive database seeding script
+8. JWT-based authentication and security middleware
+
+### Next Steps
+
+1. Implement Kafka producer and consumer workers for event streaming
+2. Build Airflow DAGs for scheduled bot runs
+3. Add Slack bot integration for real-time alerts
+4. Create unified brief synthesis combining all bot outputs
+5. Add dashboard-ready response models and frontend surface
+6. Enhance Neo4j graph projections for InvestorBot
+7. Add SHAP summaries for AcquiBot model interpretability
+8. Build real-time monitoring and alerting dashboards
 
 ## License
 
