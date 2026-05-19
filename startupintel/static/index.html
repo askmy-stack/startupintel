@@ -1,0 +1,1514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StartupIntel - AI-Powered Startup Intelligence</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        /* ===== CSS VARIABLES & DESIGN SYSTEM ===== */
+        :root {
+            /* Colors - Dark Mode Default */
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --bg-elevated: #222230;
+            
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --text-tertiary: #6a6a80;
+            
+            --accent-primary: #6366f1;
+            --accent-secondary: #8b5cf6;
+            --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+            
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --border-default: rgba(255, 255, 255, 0.12);
+            
+            /* Spacing */
+            --space-xs: 0.25rem;
+            --space-sm: 0.5rem;
+            --space-md: 1rem;
+            --space-lg: 1.5rem;
+            --space-xl: 2rem;
+            --space-2xl: 3rem;
+            
+            /* Typography */
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            
+            /* Animations */
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+            --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            
+            /* Shadows */
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+            --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.15);
+        }
+
+        /* ===== RESET & BASE ===== */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            height: 100%;
+            font-family: var(--font-sans);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            overflow: hidden;
+        }
+
+        /* ===== MAIN LAYOUT ===== */
+        .app-container {
+            display: grid;
+            grid-template-columns: 280px 1fr 320px;
+            grid-template-rows: 60px 1fr;
+            grid-template-areas:
+                "sidebar header right-panel"
+                "sidebar main right-panel";
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 1024px) {
+            .app-container {
+                grid-template-columns: 240px 1fr;
+                grid-template-areas:
+                    "sidebar header"
+                    "sidebar main";
+            }
+            .right-panel {
+                display: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .app-container {
+                grid-template-columns: 1fr;
+                grid-template-areas:
+                    "header"
+                    "main";
+            }
+            .sidebar, .right-panel {
+                display: none;
+            }
+            .mobile-nav {
+                display: flex !important;
+            }
+        }
+
+        /* ===== HEADER ===== */
+        .header {
+            grid-area: header;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 var(--space-lg);
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-subtle);
+            z-index: 100;
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+
+        .logo {
+            width: 32px;
+            height: 32px;
+            background: var(--accent-gradient);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .header-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+        }
+
+        /* Role Selector */
+        .role-selector {
+            position: relative;
+        }
+
+        .role-trigger {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            padding: var(--space-sm) var(--space-md);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-default);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s var(--ease-out-expo);
+        }
+
+        .role-trigger:hover {
+            background: var(--bg-elevated);
+            border-color: var(--accent-primary);
+        }
+
+        .role-menu {
+            position: absolute;
+            top: calc(100% + var(--space-sm));
+            right: 0;
+            min-width: 200px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-default);
+            border-radius: 12px;
+            padding: var(--space-sm);
+            box-shadow: var(--shadow-lg);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.2s var(--ease-out-expo);
+            z-index: 200;
+        }
+
+        .role-menu.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .role-option {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            padding: var(--space-sm) var(--space-md);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        .role-option:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .role-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .role-founder .role-icon { background: rgba(99, 102, 241, 0.2); color: var(--accent-primary); }
+        .role-engineer .role-icon { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+        .role-product .role-icon { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+        .role-investor .role-icon { background: rgba(59, 130, 246, 0.2); color: var(--info); }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            grid-area: sidebar;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: var(--space-lg);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .new-chat-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-sm);
+            padding: var(--space-md);
+            background: var(--accent-gradient);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-weight: 500;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s var(--ease-out-expo);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .new-chat-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--space-md);
+        }
+
+        .section-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-tertiary);
+            margin-bottom: var(--space-sm);
+            padding: 0 var(--space-sm);
+        }
+
+        .conversation-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-xs);
+        }
+
+        .conversation-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            padding: var(--space-sm) var(--space-md);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .conversation-item:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .conversation-item.active {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        /* Bot Quick Access */
+        .bot-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--space-sm);
+            margin-top: var(--space-md);
+        }
+
+        .bot-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--space-xs);
+            padding: var(--space-md);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s var(--ease-out-expo);
+        }
+
+        .bot-card:hover {
+            background: var(--bg-elevated);
+            border-color: var(--accent-primary);
+            transform: translateY(-2px);
+        }
+
+        .bot-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .bot-runway .bot-icon { background: rgba(239, 68, 68, 0.2); }
+        .bot-obituary .bot-icon { background: rgba(107, 114, 128, 0.2); }
+        .bot-pmf .bot-icon { background: rgba(16, 185, 129, 0.2); }
+        .bot-pivot .bot-icon { background: rgba(245, 158, 11, 0.2); }
+        .bot-acqui .bot-icon { background: rgba(99, 102, 241, 0.2); }
+        .bot-investor .bot-icon { background: rgba(59, 130, 246, 0.2); }
+        .bot-accelerator .bot-icon { background: rgba(139, 92, 246, 0.2); }
+        .bot-term .bot-icon { background: rgba(236, 72, 153, 0.2); }
+
+        .bot-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        /* ===== MAIN CONTENT - CHAT INTERFACE ===== */
+        .main {
+            grid-area: main;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-primary);
+            overflow: hidden;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--space-lg);
+            scroll-behavior: smooth;
+        }
+
+        /* Welcome Screen */
+        .welcome-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            padding: var(--space-2xl);
+            animation: fadeInUp 0.6s var(--ease-out-expo);
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .welcome-logo {
+            width: 80px;
+            height: 80px;
+            background: var(--accent-gradient);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: var(--space-lg);
+            box-shadow: var(--shadow-glow);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .welcome-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: var(--space-sm);
+            background: linear-gradient(135deg, #fff 0%, #a0a0b0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .welcome-subtitle {
+            font-size: 1.125rem;
+            color: var(--text-secondary);
+            margin-bottom: var(--space-2xl);
+            max-width: 500px;
+        }
+
+        .suggestion-chips {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: var(--space-sm);
+            max-width: 600px;
+        }
+
+        .suggestion-chip {
+            padding: var(--space-sm) var(--space-md);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-default);
+            border-radius: 20px;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s var(--ease-out-expo);
+        }
+
+        .suggestion-chip:hover {
+            background: var(--bg-elevated);
+            border-color: var(--accent-primary);
+            color: var(--text-primary);
+            transform: translateY(-2px);
+        }
+
+        /* Messages */
+        .message {
+            display: flex;
+            gap: var(--space-md);
+            margin-bottom: var(--space-lg);
+            animation: messageSlide 0.4s var(--ease-out-expo);
+        }
+
+        @keyframes messageSlide {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 16px;
+        }
+
+        .message.assistant .message-avatar {
+            background: var(--accent-gradient);
+        }
+
+        .message.user .message-avatar {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-default);
+        }
+
+        .message-content {
+            max-width: 80%;
+            padding: var(--space-md) var(--space-lg);
+            border-radius: 16px;
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+
+        .message.assistant .message-content {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-top-left-radius: 4px;
+        }
+
+        .message.user .message-content {
+            background: var(--accent-primary);
+            color: white;
+            border-top-right-radius: 4px;
+        }
+
+        /* Typing Indicator */
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: var(--space-md) var(--space-lg);
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--text-tertiary);
+            border-radius: 50%;
+            animation: typingBounce 1.4s ease-in-out infinite;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typingBounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-6px); }
+        }
+
+        /* Message Actions */
+        .message-actions {
+            display: flex;
+            gap: var(--space-sm);
+            margin-top: var(--space-sm);
+            padding: 0 var(--space-sm);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .message:hover .message-actions {
+            opacity: 1;
+        }
+
+        .message-action {
+            padding: var(--space-xs) var(--space-sm);
+            background: transparent;
+            border: none;
+            color: var(--text-tertiary);
+            font-size: 0.75rem;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.15s ease;
+        }
+
+        .message-action:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        /* Input Area */
+        .input-container {
+            padding: var(--space-md) var(--space-lg);
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .input-wrapper {
+            display: flex;
+            align-items: flex-end;
+            gap: var(--space-sm);
+            padding: var(--space-sm);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-default);
+            border-radius: 16px;
+            transition: all 0.2s var(--ease-out-expo);
+        }
+
+        .input-wrapper:focus-within {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: var(--space-sm) var(--space-md);
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+            resize: none;
+            max-height: 120px;
+            min-height: 24px;
+            font-family: inherit;
+        }
+
+        .chat-input:focus {
+            outline: none;
+        }
+
+        .chat-input::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .input-actions {
+            display: flex;
+            gap: var(--space-xs);
+            padding: var(--space-xs);
+        }
+
+        .input-action {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-size: 18px;
+        }
+
+        .input-action:hover {
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+        }
+
+        .send-btn {
+            background: var(--accent-gradient) !important;
+            color: white !important;
+        }
+
+        .send-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ===== RIGHT PANEL - INSIGHTS ===== */
+        .right-panel {
+            grid-area: right-panel;
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: var(--space-lg);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .panel-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--space-md);
+        }
+
+        /* Insight Cards */
+        .insight-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: var(--space-md);
+            margin-bottom: var(--space-md);
+            transition: all 0.2s var(--ease-out-expo);
+        }
+
+        .insight-card:hover {
+            border-color: var(--border-default);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .insight-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-sm);
+        }
+
+        .insight-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .insight-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .insight-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: var(--space-sm) 0;
+        }
+
+        .insight-value.positive { color: var(--success); }
+        .insight-value.negative { color: var(--danger); }
+        .insight-value.neutral { color: var(--warning); }
+
+        .insight-description {
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Bot Results Panel */
+        .bot-result-panel {
+            display: none;
+            animation: slideIn 0.4s var(--ease-out-expo);
+        }
+
+        .bot-result-panel.active {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Score Visualization */
+        .score-ring {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            margin: 0 auto var(--space-md);
+        }
+
+        .score-ring svg {
+            transform: rotate(-90deg);
+        }
+
+        .score-ring-bg {
+            fill: none;
+            stroke: var(--bg-elevated);
+            stroke-width: 8;
+        }
+
+        .score-ring-fill {
+            fill: none;
+            stroke: url(#scoreGradient);
+            stroke-width: 8;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 1s var(--ease-out-expo);
+        }
+
+        .score-value {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        /* Signal Bars */
+        .signal-bar {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-sm);
+        }
+
+        .signal-label {
+            width: 100px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .signal-track {
+            flex: 1;
+            height: 6px;
+            background: var(--bg-elevated);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .signal-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.6s var(--ease-out-expo);
+        }
+
+        .signal-value {
+            width: 40px;
+            text-align: right;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* Mobile Navigation */
+        .mobile-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-subtle);
+            padding: var(--space-sm);
+            z-index: 1000;
+        }
+
+        .mobile-nav-items {
+            display: flex;
+            justify-content: space-around;
+        }
+
+        .mobile-nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: var(--space-sm);
+            color: var(--text-tertiary);
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: color 0.15s ease;
+        }
+
+        .mobile-nav-item.active {
+            color: var(--accent-primary);
+        }
+
+        .mobile-nav-icon {
+            font-size: 20px;
+        }
+
+        /* ===== UTILITY CLASSES ===== */
+        .hidden {
+            display: none !important;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-default);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-tertiary);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-brand">
+                <div class="logo">SI</div>
+                <span class="header-title">StartupIntel</span>
+            </div>
+            <div class="header-actions">
+                <div class="role-selector">
+                    <button class="role-trigger" id="roleTrigger">
+                        <span id="currentRoleIcon">🚀</span>
+                        <span id="currentRole">Founder</span>
+                        <span>▼</span>
+                    </button>
+                    <div class="role-menu" id="roleMenu">
+                        <div class="role-option role-founder" data-role="founder">
+                            <div class="role-icon">🚀</div>
+                            <div>
+                                <div style="font-weight: 500;">Founder</div>
+                                <div style="font-size: 0.75rem; color: var(--text-tertiary);">Business insights & strategy</div>
+                            </div>
+                        </div>
+                        <div class="role-option role-engineer" data-role="engineer">
+                            <div class="role-icon">⚡</div>
+                            <div>
+                                <div style="font-weight: 500;">Engineer</div>
+                                <div style="font-size: 0.75rem; color: var(--text-tertiary);">Technical architecture & systems</div>
+                            </div>
+                        </div>
+                        <div class="role-option role-product" data-role="product">
+                            <div class="role-icon">🎯</div>
+                            <div>
+                                <div style="font-weight: 500;">Product</div>
+                                <div style="font-size: 0.75rem; color: var(--text-tertiary);">User insights & decisions</div>
+                            </div>
+                        </div>
+                        <div class="role-option role-investor" data-role="investor">
+                            <div class="role-icon">📊</div>
+                            <div>
+                                <div style="font-weight: 500;">Investor</div>
+                                <div style="font-size: 0.75rem; color: var(--text-tertiary);">Investment analysis & deals</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <button class="new-chat-btn" id="newChatBtn">
+                    <span>+</span>
+                    <span>New Conversation</span>
+                </button>
+            </div>
+            <div class="sidebar-content">
+                <div class="section-title">Quick Actions</div>
+                <div class="bot-grid">
+                    <div class="bot-card bot-runway" data-bot="runway">
+                        <div class="bot-icon">🏃</div>
+                        <div class="bot-label">Runway</div>
+                    </div>
+                    <div class="bot-card bot-obituary" data-bot="obituary">
+                        <div class="bot-icon">⚰️</div>
+                        <div class="bot-label">Obituary</div>
+                    </div>
+                    <div class="bot-card bot-pmf" data-bot="pmf">
+                        <div class="bot-icon">🎯</div>
+                        <div class="bot-label">PMF</div>
+                    </div>
+                    <div class="bot-card bot-pivot" data-bot="pivot">
+                        <div class="bot-icon">🔄</div>
+                        <div class="bot-label">Pivot</div>
+                    </div>
+                    <div class="bot-card bot-acqui" data-bot="acqui">
+                        <div class="bot-icon">💰</div>
+                        <div class="bot-label">Acqui</div>
+                    </div>
+                    <div class="bot-card bot-investor" data-bot="investor">
+                        <div class="bot-icon">💼</div>
+                        <div class="bot-label">Investor</div>
+                    </div>
+                </div>
+
+                <div class="section-title" style="margin-top: var(--space-xl);">Recent Conversations</div>
+                <div class="conversation-list" id="conversationList">
+                    <!-- Conversations will be populated here -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="main">
+            <div class="chat-container">
+                <div class="messages-container" id="messagesContainer">
+                    <!-- Welcome Screen -->
+                    <div class="welcome-screen" id="welcomeScreen">
+                        <div class="welcome-logo">SI</div>
+                        <h1 class="welcome-title">StartupIntel</h1>
+                        <p class="welcome-subtitle">
+                            Your AI-powered startup intelligence companion. 
+                            Analyze runway, detect risks, evaluate PMF, and make data-driven decisions.
+                        </p>
+                        <div class="suggestion-chips">
+                            <div class="suggestion-chip" data-prompt="Analyze my startup's financial runway">
+                                💰 "Analyze my runway"
+                            </div>
+                            <div class="suggestion-chip" data-prompt="Check product-market fit indicators">
+                                🎯 "Check my PMF"
+                            </div>
+                            <div class="suggestion-chip" data-prompt="Detect any failure risk patterns">
+                                ⚠️ "Any risks?"
+                            </div>
+                            <div class="suggestion-chip" data-prompt="What's my startup's acqui-hire probability?">
+                                💡 "Acqui probability?"
+                            </div>
+                            <div class="suggestion-chip" data-prompt="Compare my startup to similar companies">
+                                📊 "Compare startups"
+                            </div>
+                            <div class="suggestion-chip" data-prompt="Show investor network analysis">
+                                🕸️ "Investor network"
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Messages will be appended here -->
+                </div>
+
+                <!-- Input Area -->
+                <div class="input-container">
+                    <div class="input-wrapper">
+                        <textarea 
+                            class="chat-input" 
+                            id="chatInput"
+                            placeholder="Ask about your startup's runway, PMF, risks, or anything else..."
+                            rows="1"
+                        ></textarea>
+                        <div class="input-actions">
+                            <button class="input-action" title="Attach file">📎</button>
+                            <button class="input-action" title="Voice input">🎤</button>
+                            <button class="input-action send-btn" id="sendBtn" title="Send">
+                                ➤
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Panel - Insights -->
+        <aside class="right-panel" id="rightPanel">
+            <div class="panel-header">
+                <div class="panel-title">Live Insights</div>
+            </div>
+            <div class="panel-content" id="insightsContent">
+                <!-- Default Insights -->
+                <div class="insight-card">
+                    <div class="insight-header">
+                        <div class="insight-icon" style="background: rgba(99, 102, 241, 0.2);">🤖</div>
+                        <div class="insight-title">AI Status</div>
+                    </div>
+                    <div class="insight-description">
+                        All 8 specialized bots are operational and ready to analyze your startup data.
+                    </div>
+                </div>
+
+                <div class="insight-card">
+                    <div class="insight-header">
+                        <div class="insight-icon" style="background: rgba(16, 185, 129, 0.2);">📈</div>
+                        <div class="insight-title">Data Sources</div>
+                    </div>
+                    <div class="insight-description">
+                        Connected to 10+ data sources including Crunchbase, GitHub, LinkedIn, and more.
+                    </div>
+                </div>
+
+                <!-- Bot Result Panels (hidden by default) -->
+                <div class="bot-result-panel" id="runwayPanel">
+                    <div class="score-ring">
+                        <svg width="120" height="120">
+                            <defs>
+                                <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" style="stop-color:#6366f1"/>
+                                    <stop offset="100%" style="stop-color:#8b5cf6"/>
+                                </linearGradient>
+                            </defs>
+                            <circle class="score-ring-bg" cx="60" cy="60" r="52"/>
+                            <circle class="score-ring-fill" id="scoreRingFill" cx="60" cy="60" r="52"
+                                stroke-dasharray="327" stroke-dashoffset="327"/>
+                        </svg>
+                        <div class="score-value" id="scoreValue">--</div>
+                    </div>
+                    <div class="insight-header">
+                        <div class="insight-icon" style="background: rgba(239, 68, 68, 0.2);">🏃</div>
+                        <div class="insight-title">Runway Analysis</div>
+                    </div>
+                    <div id="runwaySignals">
+                        <!-- Signal bars will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Mobile Navigation -->
+        <nav class="mobile-nav">
+            <div class="mobile-nav-items">
+                <div class="mobile-nav-item active" data-view="chat">
+                    <span class="mobile-nav-icon">💬</span>
+                    <span>Chat</span>
+                </div>
+                <div class="mobile-nav-item" data-view="bots">
+                    <span class="mobile-nav-icon">🤖</span>
+                    <span>Bots</span>
+                </div>
+                <div class="mobile-nav-item" data-view="insights">
+                    <span class="mobile-nav-icon">📊</span>
+                    <span>Insights</span>
+                </div>
+                <div class="mobile-nav-item" data-view="settings">
+                    <span class="mobile-nav-icon">⚙️</span>
+                    <span>Settings</span>
+                </div>
+            </div>
+        </nav>
+    </div>
+
+    <script>
+        // ===== STARTUPINTEL CONVERSATIONAL UI =====
+        
+        class StartupIntelChat {
+            constructor() {
+                this.conversationId = null;
+                this.userRole = 'founder';
+                this.messages = [];
+                this.isStreaming = false;
+                this.apiBaseUrl = '/api';
+                
+                this.init();
+            }
+
+            init() {
+                this.bindElements();
+                this.bindEvents();
+                this.loadConversations();
+                this.setupRoleBasedUI();
+            }
+
+            bindElements() {
+                this.elements = {
+                    messagesContainer: document.getElementById('messagesContainer'),
+                    welcomeScreen: document.getElementById('welcomeScreen'),
+                    chatInput: document.getElementById('chatInput'),
+                    sendBtn: document.getElementById('sendBtn'),
+                    newChatBtn: document.getElementById('newChatBtn'),
+                    roleTrigger: document.getElementById('roleTrigger'),
+                    roleMenu: document.getElementById('roleMenu'),
+                    currentRole: document.getElementById('currentRole'),
+                    currentRoleIcon: document.getElementById('currentRoleIcon'),
+                    conversationList: document.getElementById('conversationList'),
+                    rightPanel: document.getElementById('rightPanel'),
+                    insightsContent: document.getElementById('insightsContent'),
+                    runwayPanel: document.getElementById('runwayPanel'),
+                };
+            }
+
+            bindEvents() {
+                // Send message
+                this.elements.sendBtn.addEventListener('click', () => this.sendMessage());
+                this.elements.chatInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
+                });
+
+                // Auto-resize textarea
+                this.elements.chatInput.addEventListener('input', () => {
+                    this.elements.chatInput.style.height = 'auto';
+                    this.elements.chatInput.style.height = Math.min(120, this.elements.chatInput.scrollHeight) + 'px';
+                });
+
+                // New chat
+                this.elements.newChatBtn.addEventListener('click', () => this.startNewConversation());
+
+                // Role selector
+                this.elements.roleTrigger.addEventListener('click', () => {
+                    this.elements.roleMenu.classList.toggle('active');
+                });
+
+                document.addEventListener('click', (e) => {
+                    if (!this.elements.roleTrigger.contains(e.target) && !this.elements.roleMenu.contains(e.target)) {
+                        this.elements.roleMenu.classList.remove('active');
+                    }
+                });
+
+                // Role selection
+                document.querySelectorAll('.role-option').forEach(option => {
+                    option.addEventListener('click', () => {
+                        const role = option.dataset.role;
+                        this.setUserRole(role);
+                        this.elements.roleMenu.classList.remove('active');
+                    });
+                });
+
+                // Bot cards
+                document.querySelectorAll('.bot-card').forEach(card => {
+                    card.addEventListener('click', () => {
+                        const bot = card.dataset.bot;
+                        this.activateBot(bot);
+                    });
+                });
+
+                // Suggestion chips
+                document.querySelectorAll('.suggestion-chip').forEach(chip => {
+                    chip.addEventListener('click', () => {
+                        const prompt = chip.dataset.prompt;
+                        this.elements.chatInput.value = prompt;
+                        this.sendMessage();
+                    });
+                });
+            }
+
+            async sendMessage() {
+                const message = this.elements.chatInput.value.trim();
+                if (!message || this.isStreaming) return;
+
+                // Hide welcome screen on first message
+                if (this.elements.welcomeScreen) {
+                    this.elements.welcomeScreen.style.display = 'none';
+                }
+
+                // Add user message
+                this.addMessage('user', message);
+                this.elements.chatInput.value = '';
+                this.elements.chatInput.style.height = 'auto';
+
+                // Show typing indicator
+                this.showTypingIndicator();
+
+                try {
+                    const response = await fetch(`${this.apiBaseUrl}/chat/send`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            message: message,
+                            conversation_id: this.conversationId,
+                            role: this.userRole,
+                            stream: false
+                        })
+                    });
+
+                    if (!response.ok) throw new Error('Failed to send message');
+
+                    const data = await response.json();
+                    
+                    // Remove typing indicator
+                    this.hideTypingIndicator();
+
+                    // Add assistant message
+                    this.addMessage('assistant', data.message.content, {
+                        suggestedActions: data.suggested_actions,
+                        relatedInsights: data.related_insights
+                    });
+
+                    // Update conversation ID
+                    this.conversationId = data.conversation_id;
+
+                    // Update right panel with insights
+                    this.updateInsights(data);
+
+                } catch (error) {
+                    console.error('Error:', error);
+                    this.hideTypingIndicator();
+                    this.addMessage('assistant', "I'm having trouble connecting right now. Please try again in a moment.");
+                }
+            }
+
+            addMessage(role, content, metadata = {}) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${role}`;
+                
+                const avatar = role === 'assistant' ? '🤖' : '👤';
+                
+                messageDiv.innerHTML = `
+                    <div class="message-avatar">${avatar}</div>
+                    <div class="message-content">
+                        ${this.formatMessage(content)}
+                    </div>
+                `;
+
+                // Add message actions for assistant messages
+                if (role === 'assistant') {
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'message-actions';
+                    actionsDiv.innerHTML = `
+                        <button class="message-action" onclick="chat.copyMessage(this)">Copy</button>
+                        <button class="message-action" onclick="chat.regenerateMessage(this)">Regenerate</button>
+                        <button class="message-action" onclick="chat.provideFeedback(this, 'up')">👍</button>
+                        <button class="message-action" onclick="chat.provideFeedback(this, 'down')">👎</button>
+                    `;
+                    messageDiv.appendChild(actionsDiv);
+                }
+
+                this.elements.messagesContainer.appendChild(messageDiv);
+                this.scrollToBottom();
+
+                // Store message
+                this.messages.push({ role, content, metadata, timestamp: new Date() });
+            }
+
+            formatMessage(content) {
+                // Simple markdown-like formatting
+                return content
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                    .replace(/`(.*?)`/g, '<code style="background: rgba(99,102,241,0.2); padding: 2px 6px; border-radius: 4px; font-family: monospace;">$1</code>')
+                    .replace(/\n/g, '<br>');
+            }
+
+            showTypingIndicator() {
+                this.isStreaming = true;
+                this.elements.sendBtn.disabled = true;
+
+                const typingDiv = document.createElement('div');
+                typingDiv.className = 'message assistant';
+                typingDiv.id = 'typingIndicator';
+                typingDiv.innerHTML = `
+                    <div class="message-avatar">🤖</div>
+                    <div class="message-content">
+                        <div class="typing-indicator">
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                        </div>
+                    </div>
+                `;
+                this.elements.messagesContainer.appendChild(typingDiv);
+                this.scrollToBottom();
+            }
+
+            hideTypingIndicator() {
+                this.isStreaming = false;
+                this.elements.sendBtn.disabled = false;
+                const indicator = document.getElementById('typingIndicator');
+                if (indicator) indicator.remove();
+            }
+
+            scrollToBottom() {
+                this.elements.messagesContainer.scrollTop = this.elements.messagesContainer.scrollHeight;
+            }
+
+            setUserRole(role) {
+                this.userRole = role;
+                const roleConfig = {
+                    founder: { icon: '🚀', label: 'Founder' },
+                    engineer: { icon: '⚡', label: 'Engineer' },
+                    product: { icon: '🎯', label: 'Product' },
+                    investor: { icon: '📊', label: 'Investor' }
+                };
+                
+                const config = roleConfig[role];
+                this.elements.currentRole.textContent = config.label;
+                this.elements.currentRoleIcon.textContent = config.icon;
+                
+                this.setupRoleBasedUI();
+            }
+
+            setupRoleBasedUI() {
+                // Update UI based on user role
+                const roleSuggestions = {
+                    founder: ['💰 "Analyze my runway"', '🎯 "Check my PMF"', '💡 "Acqui probability?"'],
+                    engineer: ['⚡ "Technical debt analysis"', '🔧 "Architecture review"', '📈 "Scale readiness"'],
+                    product: ['👥 "User feedback analysis"', '🎯 "Feature prioritization"', '📊 "Adoption metrics"'],
+                    investor: ['📈 "Portfolio stress test"', '💼 "Due diligence"', '🕸️ "Network analysis"']
+                };
+
+                const suggestions = roleSuggestions[this.userRole] || roleSuggestions.founder;
+                const chips = document.querySelectorAll('.suggestion-chip');
+                
+                chips.forEach((chip, index) => {
+                    if (suggestions[index]) {
+                        const text = suggestions[index].split(' ').slice(1).join(' ');
+                        const icon = suggestions[index].split(' ')[0];
+                        chip.innerHTML = `${icon} ${text}`;
+                    }
+                });
+            }
+
+            startNewConversation() {
+                this.conversationId = null;
+                this.messages = [];
+                this.elements.messagesContainer.innerHTML = '';
+                this.elements.welcomeScreen.style.display = 'flex';
+                this.elements.runwayPanel.classList.remove('active');
+                this.elements.chatInput.focus();
+            }
+
+            activateBot(bot) {
+                const prompts = {
+                    runway: 'Analyze my startup\'s financial runway and stress indicators',
+                    obituary: 'Check for failure risk patterns and danger signals',
+                    pmf: 'Evaluate my product-market fit indicators',
+                    pivot: 'Analyze my startup for strategic pivot opportunities',
+                    acqui: 'Calculate my acqui-hire probability and likely acquirers',
+                    investor: 'Analyze my investor network and value-add potential',
+                    accelerator: 'Compare accelerator programs for my startup',
+                    term: 'Review this term sheet for red flags and founder-friendliness'
+                };
+
+                this.elements.chatInput.value = prompts[bot] || '';
+                this.elements.chatInput.focus();
+            }
+
+            updateInsights(data) {
+                // Update right panel with bot results if available
+                if (data.bot_results) {
+                    this.displayBotResults(data.bot_results);
+                }
+            }
+
+            displayBotResults(results) {
+                // Show bot-specific insights in right panel
+                if (results.type === 'runway') {
+                    this.elements.runwayPanel.classList.add('active');
+                    // Animate score ring
+                    const score = results.score || 65;
+                    const circumference = 2 * Math.PI * 52;
+                    const offset = circumference - (score / 100) * circumference;
+                    
+                    setTimeout(() => {
+                        document.getElementById('scoreRingFill').style.strokeDashoffset = offset;
+                        document.getElementById('scoreValue').textContent = score;
+                    }, 100);
+                }
+            }
+
+            async loadConversations() {
+                // Load recent conversations from localStorage or API
+                const saved = localStorage.getItem('recentConversations');
+                if (saved) {
+                    const conversations = JSON.parse(saved);
+                    this.renderConversationList(conversations);
+                }
+            }
+
+            renderConversationList(conversations) {
+                this.elements.conversationList.innerHTML = conversations.map(conv => `
+                    <div class="conversation-item" data-id="${conv.id}">
+                        <span>${conv.preview}</span>
+                    </div>
+                `).join('');
+            }
+
+            // Utility methods
+            copyMessage(btn) {
+                const message = btn.closest('.message').querySelector('.message-content').textContent;
+                navigator.clipboard.writeText(message);
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = 'Copy', 2000);
+            }
+
+            regenerateMessage(btn) {
+                // Trigger message regeneration
+                console.log('Regenerating...');
+            }
+
+            provideFeedback(btn, type) {
+                console.log(`Feedback: ${type}`);
+            }
+        }
+
+        // Initialize chat
+        const chat = new StartupIntelChat();
+
+        // Expose to window for debugging
+        window.chat = chat;
+
+        // Add smooth page transitions
+        document.addEventListener('DOMContentLoaded', () => {
+            document.body.classList.add('loaded');
+        });
+
+        // Service Worker for offline support (optional)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/static/sw.js').catch(console.error);
+        }
+    </script>
+</body>
+</html>
