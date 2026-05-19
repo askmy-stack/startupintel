@@ -1,46 +1,417 @@
+"""Startup API routes with CRUD and bot integration."""
+
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query, status
+from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 
-from startupintel.api.schemas import RunwayBotOutput
+from startupintel.api.dependencies import DbDep, get_startup_or_404
+from startupintel.api.schemas import (
+    StartupCreate,
+    StartupResponse,
+    StartupUpdate,
+    StartupListResponse,
+    StartupSummary,
+    StartupSearchRequest,
+    StartupSearchResponse,
+    RunwayBotOutput,
+    ObituaryBotOutput,
+    PMFBotOutput,
+    PivotBotOutput,
+    AcquiBotOutput,
+    BotScoreListResponse,
+    BotRunResponse,
+)
 from startupintel.bots.runway_bot import RunwayBot
+from startupintel.bots.obituary_bot import ObituaryBot
+from startupintel.bots.pmf_bot import PMFBot
+from startupintel.bots.pivot_bot import PivotBot
+from startupintel.bots.acqui_bot import AcquiBot
+from startupintel.db.models import Startup, StartupScore
+from startupintel.events.producer import InMemoryEventProducer
+from startupintel.llm.client import get_llm_client
+from startupintel.rag.retriever import get_retriever
 
-router = APIRouter(prefix="/startup", tags=["startup"])
+router = APIRouter(prefix="/startup", tags=["startups"])
 
 
-DEMO_SIGNALS = {
-    "headcount_delta_pct": -0.18,
-    "job_posting_delta_pct": -0.72,
-    "founder_sentiment": -0.35,
-    "domain_expiry_days": 21,
-    "days_since_funding": 640,
-}
+# ========== CRUD Endpoints ==========
+
+@router.post("", response_model=StartupResponse, status_code=status.HTTP_201_CREATED)
+async def create_startup(db: DbDep, data: StartupCreate) -> Startup:
+    """Create a new startup."""
+    startup = Startup(**data.model_dump())
+    db.add(startup)
+    await db.commit()
+    await db.refresh(startup)
+    return startup
 
 
-class DemoRunwayBot(RunwayBot):
-    async def fetch_signals(self, startup_id: UUID) -> dict:
-        return DEMO_SIGNALS | {"startup_id": str(startup_id)}
+@router.get("", response_model=StartupListResponse)
+async def list_startups(
+    db: DbDep,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+) -> StartupListResponse:
+    """List all startups with pagination."""
+    # Get total count
+    count_result = await db.execute(select(func.count()).select_from(Startup))
+    total = count_result.scalar()
 
+    # Get paginated results
+    offset = (page - 1) * page_size
+    result = await db.execute(
+        select(Startup)
+        .order_by(Startup.created_at.desc())
+        .offset(offset)
+        .limit(page_size)
+    )
+    startups = result.scalars().all()
+
+    return StartupListResponse(
+        items=[StartupSummary(
+            id=s.id,
+            name=s.name,
+            domain=s.domain,
+            industry=s.industry,
+            stage=s.stage,
+            employee_count=s.employee_count,
+            total_funding_usd=s.total_funding_usd,
+        ) for s in startups],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get("/search", response_model=StartupSearchResponse)
+async def search_startups(
+    db: DbDep,
+    query: str | None = None,
+    industry: str | None = None,
+    stage: str | None = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+) -> StartupSearchResponse:
+    """Search startups by query, industry, or stage."""
+    stmt = select(Startup)
+
+    if query:
+        stmt = stmt.where(
+            Startup.name.ilike(f"%{query}%") | Startup.domain.ilike(f"%{query}%")
+        )
+    if industry:
+        stmt = stmt.where(Startup.industry.ilike(f"%{industry}%"))
+    if stage:
+        stmt = stmt.where(Startup.stage == stage)
+
+    # Get total
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    count_result = await db.execute(count_stmt)
+    total = count_result.scalar()
+
+    # Get results
+    offset = (page - 1) * page_size
+    stmt = stmt.order_by(Startup.created_at.desc()).offset(offset).limit(page_size)
+    result = await db.execute(stmt)
+    startups = result.scalars().all()
+
+    return StartupSearchResponse(
+        items=[StartupSummary(
+            id=s.id,
+            name=s.name,
+            domain=s.domain,
+            industry=s.industry,
+            stage=s.stage,
+            employee_count=s.employee_count,
+            total_funding_usd=s.total_funding_usd,
+        ) for s in startups],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get("/{startup_id}", response_model=StartupResponse)
+async def get_startup(startup_id: UUID, db: DbDep) -> Startup:
+    """Get a startup by ID."""
+    return await get_startup_or_404(db, startup_id)
+
+
+@router.patch("/{startup_id}", response_model=StartupResponse)
+async def update_startup(
+    startup_id: UUID,
+    data: StartupUpdate,
+    db: DbDep,
+) -> Startup:
+    """Update a startup."""
+    startup = await get_startup_or_404(db, startup_id)
+
+    update_data = data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(startup, key, value)
+
+    await db.commit()
+    await db.refresh(startup)
+    return startup
+
+
+@router.delete("/{startup_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_startup(startup_id: UUID, db: DbDep) -> None:
+    """Delete a startup."""
+    startup = await get_startup_or_404(db, startup_id)
+    await db.delete(startup)
+    await db.commit()
+
+
+# ========== Bot Endpoints ==========
 
 @router.get("/{startup_id}/stress", response_model=RunwayBotOutput)
-async def startup_stress(startup_id: UUID) -> RunwayBotOutput:
-    bot = DemoRunwayBot()
+async def get_runway_stress(startup_id: UUID, db: DbDep) -> RunwayBotOutput:
+    """Get runway stress analysis for a startup."""
+    startup = await get_startup_or_404(db, startup_id)
+
+    bot = RunwayBot(
+        db=db,
+        llm_client=get_llm_client(),
+        rag_retriever=get_retriever(),
+        producer=InMemoryEventProducer(),
+    )
+
     result = await bot.run(startup_id)
     raw = result.raw_signals
-    if not raw:
-        raise HTTPException(status_code=404, detail="No runway signals found")
+
     return RunwayBotOutput(
         startup_id=startup_id,
         score=result.score,
         risk_level=bot.risk_level(result.score),
         signal_breakdown=result.signal_breakdown,
-        headcount_delta_pct=raw["headcount_delta_pct"],
-        job_posting_delta_pct=raw["job_posting_delta_pct"],
-        founder_sentiment=raw["founder_sentiment"],
-        domain_expiry_days=raw["domain_expiry_days"],
-        days_since_funding=raw["days_since_funding"],
+        headcount_delta_pct=raw.get("headcount_delta_pct", 0.0),
+        job_posting_delta_pct=raw.get("job_posting_delta_pct", 0.0),
+        founder_sentiment=raw.get("founder_sentiment", 0.0),
+        domain_expiry_days=raw.get("domain_expiry_days", 90.0),
+        days_since_funding=raw.get("days_since_funding", 365.0),
         similar_cases=result.similar_cases,
         llm_diagnosis=result.llm_diagnosis,
+        computed_at=result.computed_at,
+    )
+
+
+@router.get("/{startup_id}/obituary", response_model=ObituaryBotOutput)
+async def get_obituary_analysis(startup_id: UUID, db: DbDep) -> ObituaryBotOutput:
+    """Get failure pattern analysis for a startup."""
+    startup = await get_startup_or_404(db, startup_id)
+
+    bot = ObituaryBot(
+        db=db,
+        llm_client=get_llm_client(),
+        rag_retriever=get_retriever(),
+        producer=InMemoryEventProducer(),
+    )
+
+    result = await bot.run(startup_id)
+
+    # Get failure pattern info
+    pattern, confidence = bot.top_failure_pattern(result.similar_cases)
+    taxonomy = bot.taxonomy_breakdown(result.similar_cases)
+
+    return ObituaryBotOutput(
+        startup_id=startup_id,
+        score=result.score,
+        risk_level="high" if result.score > 70 else "medium" if result.score > 40 else "low",
+        top_failure_pattern=pattern,
+        pattern_confidence=confidence,
+        similar_failures=result.similar_cases,
+        failure_taxonomy_breakdown=taxonomy,
+        llm_diagnosis=result.llm_diagnosis,
+        computed_at=result.computed_at,
+    )
+
+
+@router.get("/{startup_id}/pmf", response_model=PMFBotOutput)
+async def get_pmf_analysis(startup_id: UUID, db: DbDep) -> PMFBotOutput:
+    """Get product-market fit analysis for a startup."""
+    startup = await get_startup_or_404(db, startup_id)
+
+    bot = PMFBot(
+        db=db,
+        llm_client=get_llm_client(),
+        rag_retriever=get_retriever(),
+        producer=InMemoryEventProducer(),
+    )
+
+    result = await bot.run(startup_id)
+
+    # Detect changepoint
+    history = result.raw_signals.get("score_history", [])
+    changepoint, change_date = bot.detect_changepoint(history)
+
+    return PMFBotOutput(
+        startup_id=startup_id,
+        score=result.score,
+        pmf_status=bot.pmf_status(result.score),
+        strongest_signal=bot.strongest_signal(result.signal_breakdown),
+        weakest_signal=bot.weakest_signal(result.signal_breakdown),
+        changepoint_detected=changepoint,
+        changepoint_date=change_date,
+        signal_breakdown=result.signal_breakdown,
+        similar_cases=result.similar_cases,
+        llm_diagnosis=result.llm_diagnosis,
+        computed_at=result.computed_at,
+    )
+
+
+@router.get("/{startup_id}/pivot", response_model=PivotBotOutput)
+async def get_pivot_analysis(startup_id: UUID, db: DbDep) -> PivotBotOutput:
+    """Get pivot detection analysis for a startup."""
+    startup = await get_startup_or_404(db, startup_id)
+
+    bot = PivotBot(
+        db=db,
+        llm_client=get_llm_client(),
+        rag_retriever=get_retriever(),
+        producer=InMemoryEventProducer(),
+    )
+
+    result = await bot.run(startup_id)
+    raw = result.raw_signals
+
+    events = raw.get("pivot_events", [])
+    deduped = bot.deduplicate_events(events)
+
+    return PivotBotOutput(
+        startup_id=startup_id,
+        score=result.score,
+        pivot_count=len(deduped),
+        primary_pivot_type=bot.primary_pivot_type(deduped),
+        pivot_events=[{
+            "date": e.get("date"),
+            "pivot_type": e.get("pivot_type"),
+            "confidence": e.get("confidence"),
+            "evidence_summary": e.get("evidence_summary"),
+        } for e in deduped[:5]],
+        avg_confidence=result.signal_breakdown.get("avg_confidence", 0.0),
+        llm_diagnosis=result.llm_diagnosis,
+        computed_at=result.computed_at,
+    )
+
+
+@router.get("/{startup_id}/acqui", response_model=AcquiBotOutput)
+async def get_acqui_analysis(startup_id: UUID, db: DbDep) -> AcquiBotOutput:
+    """Get acqui-hire probability analysis for a startup."""
+    startup = await get_startup_or_404(db, startup_id)
+
+    bot = AcquiBot(
+        db=db,
+        llm_client=get_llm_client(),
+        rag_retriever=get_retriever(),
+        producer=InMemoryEventProducer(),
+    )
+
+    result = await bot.run(startup_id)
+    raw = result.raw_signals
+
+    # Get likely acquirers
+    acquirers = bot.likely_acquirers()
+
+    return AcquiBotOutput(
+        startup_id=startup_id,
+        score=result.score,
+        probability=result.score / 100.0,
+        group_scores=bot.group_scores(raw),
+        feature_importances=bot.feature_importances(raw),
+        likely_acquirers=[{
+            "acquirer_id": a.get("acquirer_id"),
+            "name": a.get("name"),
+            "domain": a.get("domain"),
+            "fit_score": a.get("fit_score"),
+            "tech_overlap": a.get("tech_overlap"),
+            "team_fit": a.get("team_fit"),
+            "network_overlap": a.get("network_overlap"),
+            "rationale": a.get("rationale"),
+        } for a in acquirers],
+        llm_diagnosis=result.llm_diagnosis,
+        computed_at=result.computed_at,
+    )
+
+
+# ========== Score History ==========
+
+@router.get("/{startup_id}/scores", response_model=BotScoreListResponse)
+async def get_startup_scores(
+    startup_id: UUID,
+    db: DbDep,
+    bot_name: str | None = None,
+    limit: int = Query(20, ge=1, le=100),
+) -> BotScoreListResponse:
+    """Get score history for a startup."""
+    startup = await get_startup_or_404(db, startup_id)
+
+    stmt = (
+        select(StartupScore)
+        .where(StartupScore.startup_id == startup_id)
+        .order_by(StartupScore.computed_at.desc())
+        .limit(limit)
+    )
+
+    if bot_name:
+        stmt = stmt.where(StartupScore.bot_name == bot_name)
+
+    result = await db.execute(stmt)
+    scores = result.scalars().all()
+
+    return BotScoreListResponse(
+        items=[BotRunResponse(
+            startup_id=s.startup_id,
+            bot_name=s.bot_name,
+            score=s.score,
+            status="completed",
+            computed_at=s.computed_at,
+        ) for s in scores],
+        total=len(scores),
+    )
+
+
+@router.post("/{startup_id}/run/{bot_name}", response_model=BotRunResponse)
+async def run_bot(
+    startup_id: UUID,
+    bot_name: str,
+    db: DbDep,
+) -> BotRunResponse:
+    """Manually run a bot for a startup."""
+    startup = await get_startup_or_404(db, startup_id)
+
+    # Map bot name to class
+    bot_classes = {
+        "runway": RunwayBot,
+        "obituary": ObituaryBot,
+        "pmf": PMFBot,
+        "pivot": PivotBot,
+        "acqui": AcquiBot,
+    }
+
+    if bot_name not in bot_classes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown bot: {bot_name}. Available: {list(bot_classes.keys())}",
+        )
+
+    bot_class = bot_classes[bot_name]
+    bot = bot_class(
+        db=db,
+        llm_client=get_llm_client(),
+        rag_retriever=get_retriever(),
+        producer=InMemoryEventProducer(),
+    )
+
+    result = await bot.run(startup_id)
+
+    return BotRunResponse(
+        startup_id=startup_id,
+        bot_name=bot_name,
+        score=result.score,
+        status="completed",
         computed_at=result.computed_at,
     )
 
