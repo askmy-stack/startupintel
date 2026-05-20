@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     neo4j_user: str = "neo4j"
     neo4j_password: str = "your_password"
     redis_url: str = "redis://localhost:6379/0"
+    elasticsearch_url: str | None = None  # e.g., "http://localhost:9200"
 
     # Event Streaming
     kafka_bootstrap_servers: str = "localhost:9092"
@@ -104,6 +105,14 @@ class Settings(BaseSettings):
     slack_bot_token: str | None = None
     slack_app_token: str | None = None
     slack_digest_channel: str = "#startupintel"
+    
+    # ========== EMAIL NOTIFICATIONS ==========
+    email_from_address: str = "noreply@startupintel.io"
+    email_reply_to: str | None = None
+    sendgrid_api_key: str | None = None
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    aws_region: str = "us-east-1"
 
     # ========== CACHE & RATE LIMITING ==========
     cache_ttl_seconds: int = 3600

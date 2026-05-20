@@ -253,3 +253,55 @@ class APIKey(Base):
             return False
         return True
 
+
+class UploadedFile(Base):
+    __tablename__ = "uploaded_files"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    startup_id: Mapped[UUID | None] = mapped_column(ForeignKey("startups.id", ondelete="SET NULL"), index=True)
+    
+    # File metadata
+    original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    storage_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    
+    # File type and purpose
+    file_category: Mapped[str] = mapped_column(String(50), nullable=False)  # termsheet, pitch_deck, logo, document
+    file_description: Mapped[str | None] = mapped_column(Text)
+    
+    # Virus scan results
+    virus_scan_status: Mapped[str] = mapped_column(String(20), default="pending")  # pending, clean, infected
+    virus_scan_details: Mapped[dict] = mapped_column(JSONB, default=dict)
+    
+    # Thumbnail (for images)
+    thumbnail_path: Mapped[str | None] = mapped_column(String(500))
+    
+    # Access control
+    is_public: Mapped[bool] = mapped_column(default=False)
+    access_url: Mapped[str | None] = mapped_column(String(500))
+    access_url_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    
+    # Timestamps
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    
+    organization: Mapped[Organization] = relationship()
+    user: Mapped[User] = relationship()
+    startup: Mapped[Startup | None] = relationship()
+    
+    @property
+    def is_deleted(self) -> bool:
+        return self.deleted_at is not None
+    
+    @property
+    def is_accessible(self) -> bool:
+        if self.deleted_at:
+            return False
+        if self.virus_scan_status == "infected":
+            return False
+        return True
+
