@@ -28,17 +28,33 @@ class SignalBreakdown(BaseModel):
 
 class StartupBase(BaseModel):
     """Base startup model."""
-    name: str = Field(..., min_length=1, max_length=255)
-    domain: str = Field(..., min_length=1, max_length=255)
-    crunchbase_id: str | None = None
-    founded_year: int | None = None
-    industry: str | None = None
-    stage: str | None = Field(None, pattern="^(seed|series_a|series_b|growth)$")
-    hq_city: str | None = None
-    hq_country: str | None = None
-    employee_count: int | None = Field(None, ge=0)
-    total_funding_usd: float | None = Field(None, ge=0)
-    last_funding_date: datetime | None = None
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "name": "TechCorp",
+            "domain": "techcorp.com",
+            "crunchbase_id": "techcorp",
+            "founded_year": 2020,
+            "industry": "Software",
+            "stage": "series_a",
+            "hq_city": "San Francisco",
+            "hq_country": "USA",
+            "employee_count": 50,
+            "total_funding_usd": 15000000.0,
+            "last_funding_date": "2023-06-15T00:00:00",
+        }
+    })
+    
+    name: str = Field(..., min_length=1, max_length=255, examples=["TechCorp"])
+    domain: str = Field(..., min_length=1, max_length=255, examples=["techcorp.com"])
+    crunchbase_id: str | None = Field(None, examples=["techcorp"])
+    founded_year: int | None = Field(None, ge=1800, le=2100, examples=[2020])
+    industry: str | None = Field(None, examples=["Software", "AI", "FinTech"])
+    stage: str | None = Field(None, pattern="^(seed|series_a|series_b|growth)$", examples=["series_a"])
+    hq_city: str | None = Field(None, examples=["San Francisco", "New York", "London"])
+    hq_country: str | None = Field(None, examples=["USA", "UK", "Germany"])
+    employee_count: int | None = Field(None, ge=0, examples=[50, 150, 500])
+    total_funding_usd: float | None = Field(None, ge=0, examples=[15000000.0, 50000000.0])
+    last_funding_date: datetime | None = Field(None, examples=[datetime(2023, 6, 15)])
 
 
 class StartupCreate(StartupBase):

@@ -1,8 +1,12 @@
 """Startup API routes with CRUD and bot integration."""
 
+import logging
+from datetime import datetime, UTC
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, status
+
+logger = logging.getLogger(__name__)
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
@@ -447,4 +451,168 @@ async def run_bot(
         status="completed",
         computed_at=result.computed_at,
     )
+
+
+# ========== Batch Operations ==========
+
+from pydantic import BaseModel as PydanticBaseModel
+from fastapi import BackgroundTasks
+
+class BatchBotRequest(PydanticBaseModel):
+    """Request for batch bot analysis."""
+    startup_ids: list[UUID]
+    bot_names: list[str] = ["runway", "obituary", "pmf"]
+    notify_webhook: str | None = None
+
+
+class BatchBotResult(PydanticBaseModel):
+    """Result from a single bot run in batch."""
+    startup_id: UUID
+    bot_name: str
+    status: str
+    score: float | None = None
+    error: str | None = None
+
+
+class BatchBotResponse(PydanticBaseModel):
+    """Response for batch bot analysis."""
+    job_id: str
+    total_tasks: int
+    completed: int
+    failed: int
+    results: list[BatchBotResult]
+    started_at: datetime
+    completed_at: datetime | None = None
+
+
+@router.post("/batch/analyze", response_model=BatchBotResponse)
+async def batch_analyze(
+    request: BatchBotRequest,
+    db: DbDep,
+    background_tasks: BackgroundTasks,
+) -> BatchBotResponse:
+    """Run bot analysis on multiple startups in batch.
+    
+    This runs analyses in parallel for better performance.
+    Results are returned immediately (synchronous) or can be sent to webhook.
+    """
+    from datetime import UTC
+    import asyncio
+    from uuid import uuid4
+    
+    job_id = str(uuid4())
+    started_at = datetime.now(UTC)
+    
+    total_tasks = len(request.startup_ids) * len(request.bot_names)
+    results: list[BatchBotResult] = []
+    
+    # Map bot names to classes
+    bot_classes = {
+        "runway": RunwayBot,
+        "obituary": ObituaryBot,
+        "pmf": PMFBot,
+        "pivot": PivotBot,
+        "acqui": AcquiBot,
+    }
+    
+    async def run_single_bot(startup_id: UUID, bot_name: str) -> BatchBotResult:
+        """Run a single bot and return result."""
+        try:
+            if bot_name not in bot_classes:
+                return BatchBotResult(
+                    startup_id=startup_id,
+                    bot_name=bot_name,
+                    status="error",
+                    error=f"Unknown bot: {bot_name}",
+                )
+            
+            # Check startup exists
+            startup = await db.get(Startup, startup_id)
+            if not startup:
+                return BatchBotResult(
+                    startup_id=startup_id,
+                    bot_name=bot_name,
+                    status="error",
+                    error=f"Startup not found: {startup_id}",
+                )
+            
+            bot_class = bot_classes[bot_name]
+            bot = bot_class(
+                db=db,
+                llm_client=get_llm_client(),
+                rag_retriever=get_retriever(),
+                producer=InMemoryEventProducer(),
+            )
+            
+            result = await bot.run(startup_id)
+            
+            return BatchBotResult(
+                startup_id=startup_id,
+                bot_name=bot_name,
+                status="completed",
+                score=result.score,
+            )
+        except Exception as e:
+            return BatchBotResult(
+                startup_id=startup_id,
+                bot_name=bot_name,
+                status="error",
+                error=str(e),
+            )
+    
+    # Create all tasks
+    tasks = []
+    for startup_id in request.startup_ids:
+        for bot_name in request.bot_names:
+            tasks.append(run_single_bot(startup_id, bot_name))
+    
+    # Run all tasks concurrently (with limit to avoid overwhelming resources)
+    semaphore = asyncio.Semaphore(5)  # Max 5 concurrent bot runs
+    
+    async def run_with_semaphore(task):
+        async with semaphore:
+            return await task
+    
+    results = await asyncio.gather(*[run_with_semaphore(t) for t in tasks])
+    
+    completed = sum(1 for r in results if r.status == "completed")
+    failed = sum(1 for r in results if r.status == "error")
+    
+    # Send webhook notification if configured
+    if request.notify_webhook:
+        background_tasks.add_task(
+            _send_webhook_notification,
+            request.notify_webhook,
+            job_id,
+            results,
+        )
+    
+    return BatchBotResponse(
+        job_id=job_id,
+        total_tasks=total_tasks,
+        completed=completed,
+        failed=failed,
+        results=results,
+        started_at=started_at,
+        completed_at=datetime.now(UTC),
+    )
+
+
+async def _send_webhook_notification(webhook_url: str, job_id: str, results: list) -> None:
+    """Send webhook notification with batch results."""
+    import httpx
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                webhook_url,
+                json={
+                    "job_id": job_id,
+                    "status": "completed",
+                    "completed_count": len([r for r in results if r.status == "completed"]),
+                    "failed_count": len([r for r in results if r.status == "error"]),
+                },
+                timeout=30.0,
+            )
+    except Exception as e:
+        logger.error(f"Failed to send webhook notification: {e}")
 
