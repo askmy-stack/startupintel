@@ -12,7 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from startupintel.api.routes import health, startup, investor, accelerator, termsheet, bot, chat, websocket
+from startupintel.api.routes import health, startup, investor, accelerator, termsheet, bot, chat, websocket, metrics, export
+from startupintel.api.routes.metrics import MetricsMiddleware
 from startupintel.config import get_settings
 from startupintel.db.postgres import engine
 from startupintel.db.redis import get_redis
@@ -78,6 +79,9 @@ def create_app() -> FastAPI:
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
+    # Add metrics middleware (before other middleware)
+    app.add_middleware(MetricsMiddleware)
+    
     # Include routers
     app.include_router(health.router, prefix="/api")
     app.include_router(startup.router, prefix="/api")
@@ -87,6 +91,8 @@ def create_app() -> FastAPI:
     app.include_router(bot.router, prefix="/api")
     app.include_router(chat.router, prefix="/api")
     app.include_router(websocket.router, prefix="/api")
+    app.include_router(metrics.router)
+    app.include_router(export.router, prefix="/api")
 
     # Serve UI at root
     @app.get("/")

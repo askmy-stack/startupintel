@@ -1,8 +1,8 @@
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -16,6 +16,9 @@ class Base(DeclarativeBase):
 
 class Startup(Base):
     __tablename__ = "startups"
+    __table_args__ = (
+        Index("ix_startups_search_vector", "search_vector", postgresql_using="gin"),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
@@ -33,10 +36,29 @@ class Startup(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )
+    
+    # Soft delete
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    
+    # Full-text search vector
+    search_vector: Mapped[str | None] = mapped_column(TSVECTOR)
 
     scores: Mapped[list["StartupScore"]] = relationship(back_populates="startup")
     headcount_snapshots: Mapped[list["HeadcountSnapshot"]] = relationship(back_populates="startup")
     signal_events: Mapped[list["SignalEvent"]] = relationship(back_populates="startup")
+    
+    def soft_delete(self) -> None:
+        """Soft delete the startup."""
+        self.deleted_at = utcnow()
+    
+    def restore(self) -> None:
+        """Restore a soft-deleted startup."""
+        self.deleted_at = None
+    
+    @property
+    def is_deleted(self) -> bool:
+        """Check if startup is soft-deleted."""
+        return self.deleted_at is not None
 
 
 class StartupScore(Base):

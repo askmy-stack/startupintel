@@ -621,3 +621,164 @@ async def _send_webhook_notification(webhook_url: str, job_id: str, results: lis
     except Exception as e:
         logger.error(f"Failed to send webhook notification: {e}")
 
+
+# ========== Full-Text Search ==========
+
+@router.get("/search/fulltext")
+async def fulltext_search(
+    db: DbDep,
+    query: str = Query(..., min_length=2, description="Search query (min 2 characters)"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+) -> StartupSearchResponse:
+    """Full-text search across startups using PostgreSQL tsvector.
+    
+    Searches across name, domain, industry, city, and country.
+    """
+    from sqlalchemy import func, or_, text
+    
+    # Build the search query using to_tsquery
+    # Convert query to tsquery format (add & between words)
+    search_terms = " & ".join(query.split())
+    
+    # Use raw SQL for ts_rank and tsquery
+    rank_expr = func.ts_rank(
+        Startup.search_vector,
+        func.to_tsquery("english", search_terms)
+    ).label("rank")
+    
+    stmt = (
+        select(Startup, rank_expr)
+        .where(
+            Startup.search_vector.op("@@")(func.to_tsquery("english", search_terms))
+        )
+        .where(Startup.deleted_at.is_(None))  # Exclude soft-deleted
+        .order_by(rank_expr.desc())
+    )
+    
+    # Get total count
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    count_result = await db.execute(count_stmt)
+    total = count_result.scalar()
+    
+    # Get paginated results
+    offset = (page - 1) * page_size
+    stmt = stmt.offset(offset).limit(page_size)
+    
+    result = await db.execute(stmt)
+    rows = result.all()
+    
+    return StartupSearchResponse(
+        items=[
+            StartupSummary(
+                id=startup.id,
+                name=startup.name,
+                domain=startup.domain,
+                industry=startup.industry,
+                stage=startup.stage,
+                employee_count=startup.employee_count,
+                total_funding_usd=startup.total_funding_usd,
+            )
+            for startup, rank in rows
+        ],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
+
+
+# ========== Soft Delete Operations ==========
+
+@router.delete("/{startup_id}/soft", status_code=status.HTTP_204_NO_CONTENT)
+async def soft_delete_startup(startup_id: UUID, db: DbDep) -> None:
+    """Soft delete a startup (can be restored later)."""
+    startup = await get_startup_or_404(db, startup_id)
+    startup.soft_delete()
+    await db.commit()
+    
+    # Invalidate cache
+    await invalidate_cache_pattern("startups:*")
+
+
+@router.post("/{startup_id}/restore", response_model=StartupResponse)
+async def restore_startup(startup_id: UUID, db: DbDep) -> Startup:
+    """Restore a soft-deleted startup."""
+    from sqlalchemy import select
+    
+    # Find startup including deleted ones
+    stmt = select(Startup).where(Startup.id == startup_id)
+    result = await db.execute(stmt)
+    startup = result.scalar_one_or_none()
+    
+    if not startup:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Startup {startup_id} not found",
+        )
+    
+    if not startup.is_deleted:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Startup is not deleted",
+        )
+    
+    startup.restore()
+    await db.commit()
+    await db.refresh(startup)
+    
+    # Invalidate cache
+    await invalidate_cache_pattern("startups:*")
+    
+    return startup
+
+
+@router.get("/deleted/list")
+async def list_deleted_startups(
+    db: DbDep,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+) -> StartupListResponse:
+    """List all soft-deleted startups (admin only)."""
+    from sqlalchemy import select, func
+    
+    stmt = select(Startup).where(Startup.deleted_at.isnot(None))
+    
+    # Get total count
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    count_result = await db.execute(count_stmt)
+    total = count_result.scalar()
+    
+    # Get paginated results
+    offset = (page - 1) * page_size
+    stmt = (
+        stmt.order_by(Startup.deleted_at.desc())
+        .offset(offset)
+        .limit(page_size)
+    )
+    
+    result = await db.execute(stmt)
+    startups = result.scalars().all()
+    
+    total_pages = (total + page_size - 1) // page_size if total > 0 else 1
+    
+    return StartupListResponse(
+        items=[
+            StartupSummary(
+                id=s.id,
+                name=s.name,
+                domain=s.domain,
+                industry=s.industry,
+                stage=s.stage,
+                employee_count=s.employee_count,
+                total_funding_usd=s.total_funding_usd,
+            )
+            for s in startups
+        ],
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+        has_next=page < total_pages,
+        has_prev=page > 1,
+    )
+
