@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 from startupintel.config import get_settings
+from startupintel.utils.circuit_breaker import circuit_breaker
 
 if TYPE_CHECKING:
     from groq import AsyncGroq
@@ -51,25 +52,33 @@ class GroqClient(BaseLLMClient):
             self._client = AsyncGroq(api_key=self.api_key)
         return self._client
 
+    async def _generate_internal(self, prompt: str, max_tokens: int = 500) -> str:
+        """Internal generate method - wrapped by circuit breaker."""
+        # Use asyncio.wait_for to enforce timeout
+        response = await asyncio.wait_for(
+            self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are a startup intelligence analyst."},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=max_tokens,
+                temperature=0.3,
+            ),
+            timeout=self.timeout
+        )
+        return response.choices[0].message.content or ""
+
     async def generate(self, prompt: str, max_tokens: int = 500) -> str:
+        """Generate text with circuit breaker protection."""
+        breaker = circuit_breaker("groq")
         try:
-            # Use asyncio.wait_for to enforce timeout
-            response = await asyncio.wait_for(
-                self.client.chat.completions.create(
-                    model=self.model,
-                    messages=[
-                        {"role": "system", "content": "You are a startup intelligence analyst."},
-                        {"role": "user", "content": prompt},
-                    ],
-                    max_tokens=max_tokens,
-                    temperature=0.3,
-                ),
-                timeout=self.timeout
-            )
-            return response.choices[0].message.content or ""
+            return await breaker.call(self._generate_internal, prompt, max_tokens)
         except asyncio.TimeoutError:
             return "Error: LLM request timed out. Please try again."
         except Exception as e:
+            if "Circuit breaker" in str(e):
+                return "Error: LLM service temporarily unavailable. Please try again later."
             return f"Error generating response: {e}"
 
     async def generate_diagnosis(
