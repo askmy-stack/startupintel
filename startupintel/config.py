@@ -38,8 +38,11 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     api_secret_key: str = "change-me"
-    api_access_token_expire_minutes: int = 30
     cors_allowed_origins: str | None = None  # Comma-separated list
+    
+    # JWT Configuration
+    access_token_expire_minutes: int = 30
+    refresh_token_expire_days: int = 30
 
     # ========== RUNWAY BOT ==========
     runway_weight_headcount: float = Field(default=0.35, ge=0, le=1)
@@ -105,6 +108,16 @@ class Settings(BaseSettings):
     # ========== CACHE & RATE LIMITING ==========
     cache_ttl_seconds: int = 3600
     rate_limit_requests_per_minute: int = 60
+    
+    # ========== FILE STORAGE ==========
+    storage_provider: Literal["local", "s3", "minio"] = "local"
+    storage_bucket: str = "startupintel-files"
+    s3_endpoint_url: str | None = None  # For MinIO
+    s3_access_key: str | None = None
+    s3_secret_key: str | None = None
+    s3_region: str = "us-east-1"
+    max_upload_size_mb: int = 50
+    allowed_file_types: str = ".pdf,.doc,.docx,.txt,.csv,.json,.jpg,.jpeg,.png"  # Comma-separated
 
     @field_validator("api_secret_key")
     @classmethod

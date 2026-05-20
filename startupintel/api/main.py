@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from startupintel.api.routes import health, startup, investor, accelerator, termsheet, bot, chat, websocket, metrics, export
+from startupintel.api.routes import health, startup, investor, accelerator, termsheet, bot, chat, websocket, metrics, export, auth
 from startupintel.api.routes.metrics import MetricsMiddleware
 from startupintel.config import get_settings
 from startupintel.db.postgres import engine
@@ -93,6 +93,7 @@ def create_app() -> FastAPI:
     app.include_router(websocket.router, prefix="/api")
     app.include_router(metrics.router)
     app.include_router(export.router, prefix="/api")
+    app.include_router(auth.router, prefix="/api/auth")
 
     # Serve UI at root
     @app.get("/")
