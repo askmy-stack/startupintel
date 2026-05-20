@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
+from datetime import datetime, timedelta, UTC
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -143,3 +144,78 @@ async def get_accelerator_or_404(db: DbDep, accelerator_id: UUID) -> Accelerator
             detail=f"Accelerator {accelerator_id} not found",
         )
     return accelerator
+
+
+# ========== Rate Limiting ==========
+
+# Simple in-memory rate limiter (use Redis in production for distributed rate limiting)
+_rate_limit_store: dict[str, tuple[list[datetime], int]] = {}
+
+
+class RateLimiter:
+    """Simple in-memory rate limiter."""
+    
+    def __init__(self, requests_per_minute: int = 60):
+        self.requests_per_minute = requests_per_minute
+        self.window = timedelta(minutes=1)
+    
+    async def check_rate_limit(self, key: str) -> tuple[bool, int, int]:
+        """Check if request is within rate limit.
+        
+        Returns: (allowed, remaining, reset_in_seconds)
+        """
+        now = datetime.now(UTC)
+        
+        if key not in _rate_limit_store:
+            _rate_limit_store[key] = ([now], 1)
+            return True, self.requests_per_minute - 1, 60
+        
+        requests, _ = _rate_limit_store[key]
+        
+        # Remove expired requests
+        cutoff = now - self.window
+        requests = [r for r in requests if r > cutoff]
+        
+        if len(requests) >= self.requests_per_minute:
+            reset_in = int((requests[0] + self.window - now).total_seconds())
+            _rate_limit_store[key] = (requests, len(requests))
+            return False, 0, max(reset_in, 1)
+        
+        requests.append(now)
+        _rate_limit_store[key] = (requests, len(requests))
+        remaining = self.requests_per_minute - len(requests)
+        
+        return True, remaining, 60
+
+
+async def rate_limit_dependency(
+    request: Request,
+    requests_per_minute: int = 60,
+) -> None:
+    """Rate limiting dependency for FastAPI endpoints.
+    
+    Usage:
+        @router.post("/endpoint", dependencies=[Depends(RateLimiter(requests_per_minute=30))])
+    """
+    # Create key from client IP + path
+    client_ip = request.client.host if request.client else "unknown"
+    key = f"{client_ip}:{request.url.path}"
+    
+    limiter = RateLimiter(requests_per_minute=requests_per_minute)
+    allowed, remaining, reset_in = await limiter.check_rate_limit(key)
+    
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Rate limit exceeded. Try again in {reset_in} seconds.",
+            headers={
+                "X-RateLimit-Limit": str(requests_per_minute),
+                "X-RateLimit-Remaining": "0",
+                "X-RateLimit-Reset": str(reset_in),
+                "Retry-After": str(reset_in),
+            },
+        )
+    
+    # Store rate limit info in request state for response headers
+    request.state.rate_limit_remaining = remaining
+    request.state.rate_limit_limit = requests_per_minute

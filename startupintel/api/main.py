@@ -2,11 +2,14 @@
 
 import logging
 import os
+import time
 from pathlib import Path
+from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from startupintel.api.routes import health, startup, investor, accelerator, termsheet, bot, chat
@@ -41,6 +44,29 @@ def create_app() -> FastAPI:
         allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
         max_age=600,
     )
+
+    # Gzip compression for responses > 1KB
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+    # Request ID middleware for tracing
+    @app.middleware("http")
+    async def add_request_id(request: Request, call_next):
+        request_id = request.headers.get("X-Request-ID", str(uuid4()))
+        request.state.request_id = request_id
+        
+        start_time = time.time()
+        response = await call_next(request)
+        
+        # Add request ID and timing headers
+        response.headers["X-Request-ID"] = request_id
+        response.headers["X-Response-Time"] = str(round((time.time() - start_time) * 1000, 2))
+        
+        # Log request details
+        logger.info(
+            f"{request.method} {request.url.path} - {response.status_code} - {request_id}"
+        )
+        
+        return response
 
     # Get the base directory for static files
     base_dir = Path(__file__).parent.parent

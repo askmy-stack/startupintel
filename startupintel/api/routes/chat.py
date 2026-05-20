@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from typing import AsyncGenerator
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from startupintel.api.dependencies import DbDep, get_llm_client, get_retriever
+from startupintel.api.dependencies import DbDep, get_llm_client, get_retriever, rate_limit_dependency
 from startupintel.bots.runway_bot import RunwayBot
 from startupintel.bots.obituary_bot import ObituaryBot
 from startupintel.bots.pmf_bot import PMFBot
@@ -100,7 +100,7 @@ _CONVERSATION_TTL_HOURS = 24
 
 def get_or_create_conversation(conversation_id: str | None) -> tuple[str, ConversationContext]:
     """Get existing conversation or create new one."""
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     
     # Clean expired conversations
     expired = [
@@ -121,7 +121,11 @@ def get_or_create_conversation(conversation_id: str | None) -> tuple[str, Conver
     return new_id, _conversations[new_id][0]
 
 
-@router.post("/send", response_model=ChatResponse)
+@router.post(
+    "/send",
+    response_model=ChatResponse,
+    dependencies=[Depends(lambda r: rate_limit_dependency(r, requests_per_minute=30))]
+)
 async def send_message(
     request: ChatRequest,
     db: DbDep,
@@ -410,7 +414,7 @@ async def clear_conversation(conversation_id: str) -> dict:
         context, created = _conversations[conversation_id]
         context.history.clear()
         # Reset timestamp
-        _conversations[conversation_id] = (context, datetime.utcnow())
+        _conversations[conversation_id] = (context, datetime.now(UTC))
         return {"message": "Conversation cleared", "conversation_id": conversation_id}
     
     raise HTTPException(

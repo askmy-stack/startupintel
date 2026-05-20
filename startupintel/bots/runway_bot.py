@@ -1,6 +1,6 @@
 """RunwayBot - Financial stress detection from headcount, hiring, sentiment, domain, funding."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from uuid import UUID
 
 from sqlalchemy import select
@@ -46,7 +46,7 @@ class RunwayBot(BaseBot):
 
                 # Calculate days since funding
                 if startup.last_funding_date:
-                    days_since = (datetime.utcnow() - startup.last_funding_date.replace(tzinfo=None)).days
+                    days_since = (datetime.now(UTC) - startup.last_funding_date.replace(tzinfo=UTC)).days
                     signals["days_since_funding"] = days_since
                 else:
                     signals["days_since_funding"] = 365  # Default assumption
@@ -71,9 +71,9 @@ class RunwayBot(BaseBot):
             return 0.0
 
         from sqlalchemy import select
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, UTC
 
-        cutoff = datetime.utcnow() - timedelta(days=30)
+        cutoff = datetime.now(UTC) - timedelta(days=30)
 
         result = await self.db.execute(
             select(HeadcountSnapshot)
