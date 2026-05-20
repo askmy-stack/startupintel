@@ -51,23 +51,53 @@ async def create_startup(db: DbDep, data: StartupCreate) -> Startup:
 @router.get("", response_model=StartupListResponse)
 async def list_startups(
     db: DbDep,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
+    sort_by: str = Query("created_at", description="Field to sort by (created_at, name, employee_count, total_funding_usd)"),
+    sort_order: str = Query("desc", description="Sort order (asc, desc)"),
+    industry: str | None = Query(None, description="Filter by industry"),
+    stage: str | None = Query(None, description="Filter by stage (seed, series_a, series_b, growth)"),
 ) -> StartupListResponse:
-    """List all startups with pagination."""
-    # Get total count
-    count_result = await db.execute(select(func.count()).select_from(Startup))
+    """List all startups with pagination, sorting, and filtering."""
+    # Validate sort_by field
+    valid_sort_fields = {"created_at", "name", "employee_count", "total_funding_usd"}
+    if sort_by not in valid_sort_fields:
+        sort_by = "created_at"
+    
+    # Validate sort_order
+    if sort_order.lower() not in {"asc", "desc"}:
+        sort_order = "desc"
+    
+    # Build base query with filters
+    stmt = select(Startup)
+    if industry:
+        stmt = stmt.where(Startup.industry.ilike(f"%{industry}%"))
+    if stage:
+        stmt = stmt.where(Startup.stage == stage)
+    
+    # Get total count (with filters applied)
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    count_result = await db.execute(count_stmt)
     total = count_result.scalar()
 
-    # Get paginated results
+    # Apply sorting
+    sort_column = getattr(Startup, sort_by)
+    if sort_order.lower() == "desc":
+        stmt = stmt.order_by(sort_column.desc())
+    else:
+        stmt = stmt.order_by(sort_column.asc())
+    
+    # Apply pagination
     offset = (page - 1) * page_size
-    result = await db.execute(
-        select(Startup)
-        .order_by(Startup.created_at.desc())
-        .offset(offset)
-        .limit(page_size)
-    )
+    stmt = stmt.offset(offset).limit(page_size)
+    
+    result = await db.execute(stmt)
     startups = result.scalars().all()
+
+    # Calculate pagination metadata
+    total_pages = (total + page_size - 1) // page_size if total > 0 else 1
+    has_next = page < total_pages
+    has_prev = page > 1
 
     return StartupListResponse(
         items=[StartupSummary(
@@ -82,6 +112,9 @@ async def list_startups(
         total=total,
         page=page,
         page_size=page_size,
+        total_pages=total_pages,
+        has_next=has_next,
+        has_prev=has_prev,
     )
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 from datetime import datetime, timedelta, UTC
 from typing import AsyncGenerator
 from uuid import UUID, uuid4
@@ -29,12 +30,53 @@ from sqlalchemy import select
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
+def utc_now() -> datetime:
+    """Return current UTC time."""
+    return datetime.now(UTC)
+
+
+def sanitize_input(text: str) -> str:
+    """Sanitize user input to prevent XSS and injection attacks.
+    
+    Removes HTML tags, excessive whitespace, and null bytes.
+    """
+    if not text:
+        return ""
+    
+    # Remove null bytes
+    text = text.replace('\x00', '')
+    
+    # Remove HTML tags (simple regex approach)
+    text = re.sub(r'<[^>]+>', '', text)
+    
+    # Remove script/event handlers
+    text = re.sub(r'on\w+\s*=', '', text, flags=re.IGNORECASE)
+    
+    # Remove javascript: and data: protocols
+    text = re.sub(r'javascript:', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'data:', '', text, flags=re.IGNORECASE)
+    
+    # Normalize whitespace (but preserve single newlines)
+    text = re.sub(r'[\t\r\f\v]+', ' ', text)
+    text = re.sub(r' {2,}', ' ', text)
+    
+    # Strip leading/trailing whitespace
+    text = text.strip()
+    
+    return text
+
+
 class ChatMessage(BaseModel):
     """A chat message."""
     role: str = Field(..., pattern="^(user|assistant|system)$")
     content: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=utc_now)
     metadata: dict = Field(default_factory=dict)
+    
+    @staticmethod
+    def sanitize_content(content: str) -> str:
+        """Sanitize message content."""
+        return sanitize_input(content)
 
 
 class ChatRequest(BaseModel):
@@ -193,15 +235,18 @@ async def send_message(
     redis=Depends(get_redis_client),
 ) -> ChatResponse:
     """Send a message to the conversational AI."""
-    # Validate message length
-    if len(request.message) > 4000:
+    # Sanitize input first
+    sanitized_message = sanitize_input(request.message)
+    
+    # Validate message length (after sanitization)
+    if len(sanitized_message) > 4000:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Message too long. Maximum 4000 characters allowed."
         )
     
     # Validate message content
-    if not request.message.strip():
+    if not sanitized_message:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Message cannot be empty."
@@ -210,8 +255,8 @@ async def send_message(
     conversation_id, context = await get_or_create_conversation(request.conversation_id, redis)
     context.user_role = request.role
     
-    # Add user message
-    user_message = ChatMessage(role="user", content=request.message)
+    # Add user message (with sanitized content)
+    user_message = ChatMessage(role="user", content=sanitized_message)
     context.add_message(user_message)
     
     # Detect intent

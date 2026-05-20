@@ -14,6 +14,8 @@ from fastapi.staticfiles import StaticFiles
 
 from startupintel.api.routes import health, startup, investor, accelerator, termsheet, bot, chat
 from startupintel.config import get_settings
+from startupintel.db.postgres import engine
+from startupintel.db.redis import get_redis
 
 # Configure logging
 logging.basicConfig(
@@ -106,6 +108,38 @@ def create_app() -> FastAPI:
                 "request_id": getattr(request.state, "request_id", None),
             },
         )
+
+    # Graceful shutdown handlers
+    @app.on_event("startup")
+    async def startup_event():
+        """Initialize resources on startup."""
+        logger.info("Starting up StartupIntel API...")
+        # Validate critical configuration
+        settings = get_settings()
+        if settings.api_secret_key in ("change-me", "secret", "default"):
+            logger.warning("WARNING: Using default API secret key! Change this in production.")
+
+    @app.on_event("shutdown")
+    async def shutdown_event():
+        """Clean up resources on shutdown."""
+        logger.info("Shutting down StartupIntel API...")
+        
+        # Close database connections
+        try:
+            await engine.dispose()
+            logger.info("Database connections closed")
+        except Exception as e:
+            logger.error(f"Error closing database connections: {e}")
+        
+        # Close Redis connections
+        try:
+            redis = get_redis()
+            await redis.close()
+            logger.info("Redis connections closed")
+        except Exception as e:
+            logger.error(f"Error closing Redis connections: {e}")
+        
+        logger.info("Shutdown complete")
 
     return app
 
