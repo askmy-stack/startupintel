@@ -2,7 +2,7 @@
 
 **Open-source startup intelligence, built from public signals.**
 
-[![CI](https://github.com/askmy-stack/startupintel/actions/workflows/ci.yml/badge.svg)](https://github.com/askmy-stack/startupintel/actions/workflows/ci.yml)
+[![CI/CD](https://github.com/askmy-stack/startupintel/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/askmy-stack/startupintel/actions/workflows/ci-cd.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-API-009688.svg)](https://fastapi.tiangolo.com)
@@ -211,6 +211,49 @@ Key groups:
 
 Interactive docs are available at `http://localhost:8000/docs` when the API is running.
 
+### Authentication Endpoints
+
+| Method | Route | Description |
+|---|---|---|
+| `POST` | `/api/auth/register` | Create account + organization |
+| `POST` | `/api/auth/login` | Login with email/password |
+| `POST` | `/api/auth/refresh` | Refresh access token |
+| `GET` | `/api/auth/me` | Current user profile |
+| `POST` | `/api/auth/api-keys` | Create API key |
+| `GET` | `/api/auth/api-keys` | List API keys |
+
+### File Upload Endpoints
+
+| Method | Route | Description |
+|---|---|---|
+| `POST` | `/api/files/upload` | Upload file with virus scan |
+| `GET` | `/api/files/` | List files |
+| `GET` | `/api/files/{id}/download` | Download file |
+| `GET` | `/api/files/{id}/thumbnail` | Get thumbnail |
+
+### Export Endpoints
+
+| Method | Route | Description |
+|---|---|---|
+| `GET` | `/api/export/startups/csv` | Export startups to CSV |
+| `GET` | `/api/export/startups/json` | Export startups to JSON |
+| `GET` | `/api/export/startup/{id}/report` | Export startup report |
+
+### Search Endpoints
+
+| Method | Route | Description |
+|---|---|---|
+| `GET` | `/api/startup/search` | Search startups (PostgreSQL) |
+| `GET` | `/api/startup/search/fulltext` | Full-text search |
+
+### Monitoring
+
+| Endpoint | Description |
+|---|---|
+| `/metrics` | Prometheus metrics |
+| `/api/health/live` | Liveness probe |
+| `/api/health/ready` | Readiness probe |
+
 ## RunwayBot
 
 RunwayBot is the first implemented bot. It normalizes five stress signals into a 0 to 100 score.
@@ -238,53 +281,88 @@ High-stress results above `RUNWAY_HIGH_STRESS_THRESHOLD` emit `startup.stress.hi
 
 ```text
 startupintel/
-  api/              FastAPI app, schemas, routes
-  bots/             BaseBot and bot implementations
-  db/               SQLAlchemy models and database clients
-  events/           Event topics and producers
-  graph/            Neo4j schema helpers
-  ingestion/        Connector interfaces
-  llm/              LLM client abstractions
-  rag/              Retriever abstractions and corpus folders
-  scoring/          Shared scoring utilities
-  airflow/          DAG package placeholder
-  slack/            Slack integration placeholder
-tests/
-  test_api/
-  test_bots/
-scripts/
-  seed_database.py
+├── api/                    # FastAPI application
+│   ├── dependencies/       # Auth, DB dependencies
+│   ├── routes/             # API route handlers
+│   ├── schemas/            # Pydantic models
+│   └── main.py             # Application entry
+├── bots/                   # Bot implementations
+│   ├── base.py             # BaseBot abstract class
+│   ├── runway_bot.py       # RunwayBot
+│   ├── obituary_bot.py     # ObituaryBot
+│   ├── pmf_bot.py          # PMFBot
+│   ├── pivot_bot.py        # PivotBot
+│   ├── acqui_bot.py        # AcquiBot
+│   ├── investor_bot.py     # InvestorBot
+│   └── accelerator_bot.py  # AcceleratorBot
+├── db/                     # Database layer
+│   ├── models.py           # SQLAlchemy models
+│   ├── postgres.py         # PostgreSQL connection
+│   ├── neo4j.py            # Neo4j connection
+│   └── redis.py            # Redis connection
+├── events/                 # Event streaming
+│   ├── producer.py         # Event producer
+│   └── topics.py           # Event definitions
+├── ingestion/              # Data connectors
+│   ├── crunchbase.py
+│   ├── github.py
+│   ├── linkedin.py
+│   └── ...
+├── llm/                    # LLM clients
+│   ├── client.py
+│   └── prompts.py
+├── rag/                    # RAG system
+│   ├── retriever.py
+│   └── embeddings.py
+├── utils/                  # Shared utilities
+│   ├── auth.py             # JWT, passwords
+│   ├── cache.py            # Redis caching
+│   ├── circuit_breaker.py  # Resilience patterns
+│   ├── elasticsearch.py    # Search client
+│   ├── feature_flags.py    # Feature toggles
+│   ├── logging_config.py   # Structured logging
+│   ├── notifications.py    # Email/Slack
+│   ├── retry.py            # Retry logic
+│   └── storage.py          # File storage
+├── config.py               # App configuration
+├── tests/                  # Test suite
+├── scripts/                # Utility scripts
+├── docs/                   # Documentation
+├── k8s/                    # Kubernetes manifests
+└── monitoring/             # Prometheus config
+
+Infrastructure:
+├── docker-compose.yml      # Local development stack
+├── Dockerfile              # Production image
+└── .github/workflows/      # CI/CD pipelines
 ```
 
 ## Development
 
-Create a branch from `main`:
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development guidelines.
+
+Quick start:
 
 ```bash
 git switch main
 git pull
-git switch -c codex/your-change
+git switch -c feature/your-change
 ```
 
-Run checks before opening a PR:
+Before submitting PR:
 
 ```bash
 ruff check .
 pytest -q
 ```
 
-Expected PR shape:
-
-- Keep changes scoped.
-- Add or update tests for bot behavior, API routes, and scoring logic.
-- Keep bot weights configurable through `.env`.
-- Document new public endpoints and major signals in this README.
-
 ## Security And Data Use
 
 StartupIntel is intended for public and permissioned data sources only. Do not commit API keys, scraped private data, personal data dumps, or proprietary datasets. Use `.env` for local secrets and keep generated indexes or model binaries outside Git unless they are intentionally released artifacts.
 
 ## Roadmap
+
+See [CHANGELOG.md](CHANGELOG.md) for version history and planned features.
 
 ### Completed
 
