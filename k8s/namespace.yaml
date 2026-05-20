@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: startupintel
+  labels:
+    name: startupintel
+    app: startupintel
