@@ -36,6 +36,7 @@ from startupintel.db.models import Startup, StartupScore
 from startupintel.events.producer import InMemoryEventProducer
 from startupintel.llm.client import get_llm_client
 from startupintel.rag.retriever import get_retriever
+from startupintel.utils.cache import cached, invalidate_cache_pattern
 
 router = APIRouter(prefix="/startup", tags=["startups"])
 
@@ -49,6 +50,10 @@ async def create_startup(db: DbDep, data: StartupCreate) -> Startup:
     db.add(startup)
     await db.commit()
     await db.refresh(startup)
+    
+    # Invalidate startup list cache
+    await invalidate_cache_pattern("startups:*")
+    
     return startup
 
 
