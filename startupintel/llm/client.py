@@ -53,16 +53,22 @@ class GroqClient(BaseLLMClient):
 
     async def generate(self, prompt: str, max_tokens: int = 500) -> str:
         try:
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a startup intelligence analyst."},
-                    {"role": "user", "content": prompt},
-                ],
-                max_tokens=max_tokens,
-                temperature=0.3,
+            # Use asyncio.wait_for to enforce timeout
+            response = await asyncio.wait_for(
+                self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": "You are a startup intelligence analyst."},
+                        {"role": "user", "content": prompt},
+                    ],
+                    max_tokens=max_tokens,
+                    temperature=0.3,
+                ),
+                timeout=self.timeout
             )
             return response.choices[0].message.content or ""
+        except asyncio.TimeoutError:
+            return "Error: LLM request timed out. Please try again."
         except Exception as e:
             return f"Error generating response: {e}"
 

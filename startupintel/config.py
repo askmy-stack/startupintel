@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     api_port: int = 8000
     api_secret_key: str = "change-me"
     api_access_token_expire_minutes: int = 30
+    cors_allowed_origins: str | None = None  # Comma-separated list
 
     # ========== RUNWAY BOT ==========
     runway_weight_headcount: float = Field(default=0.35, ge=0, le=1)
@@ -104,6 +105,18 @@ class Settings(BaseSettings):
     # ========== CACHE & RATE LIMITING ==========
     cache_ttl_seconds: int = 3600
     rate_limit_requests_per_minute: int = 60
+
+    @field_validator("api_secret_key")
+    @classmethod
+    def validate_secret_key(cls, v: str) -> str:
+        """Validate that API secret key is not using default value."""
+        if v in ("change-me", "secret", "default"):
+            import os
+            if os.getenv("ENVIRONMENT") == "production":
+                raise ValueError("api_secret_key must be changed from default value in production")
+        if len(v) < 32:
+            raise ValueError("api_secret_key must be at least 32 characters long")
+        return v
 
 
 @lru_cache

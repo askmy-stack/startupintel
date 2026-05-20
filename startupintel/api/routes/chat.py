@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+import asyncio
+from datetime import datetime, timedelta
 from typing import AsyncGenerator
 from uuid import UUID, uuid4
 
@@ -92,18 +93,32 @@ class ConversationContext:
         return "general"
 
 
-# In-memory conversation store (use Redis in production)
-_conversations: dict[str, ConversationContext] = {}
+# In-memory conversation store with TTL (use Redis in production)
+_conversations: dict[str, tuple[ConversationContext, datetime]] = {}
+_CONVERSATION_TTL_HOURS = 24
 
 
 def get_or_create_conversation(conversation_id: str | None) -> tuple[str, ConversationContext]:
     """Get existing conversation or create new one."""
+    now = datetime.utcnow()
+    
+    # Clean expired conversations
+    expired = [
+        k for k, (_, created) in _conversations.items()
+        if now - created > timedelta(hours=_CONVERSATION_TTL_HOURS)
+    ]
+    for k in expired:
+        del _conversations[k]
+    
     if conversation_id and conversation_id in _conversations:
-        return conversation_id, _conversations[conversation_id]
+        context, _ = _conversations[conversation_id]
+        # Update timestamp on access
+        _conversations[conversation_id] = (context, now)
+        return conversation_id, context
     
     new_id = conversation_id or str(uuid4())
-    _conversations[new_id] = ConversationContext()
-    return new_id, _conversations[new_id]
+    _conversations[new_id] = (ConversationContext(), now)
+    return new_id, _conversations[new_id][0]
 
 
 @router.post("/send", response_model=ChatResponse)
@@ -112,6 +127,20 @@ async def send_message(
     db: DbDep,
 ) -> ChatResponse:
     """Send a message to the conversational AI."""
+    # Validate message length
+    if len(request.message) > 4000:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Message too long. Maximum 4000 characters allowed."
+        )
+    
+    # Validate message content
+    if not request.message.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Message cannot be empty."
+        )
+    
     conversation_id, context = get_or_create_conversation(request.conversation_id)
     context.user_role = request.role
     
@@ -135,16 +164,22 @@ async def send_message(
         "analyst": "You are a research analyst providing comprehensive startup intelligence across all dimensions. Be thorough and data-driven in your analysis.",
     }
     
-    # Generate response
-    response_content = await generate_intelligent_response(
-        message=request.message,
-        intent=intent,
-        context=context,
-        llm=llm,
-        db=db,
-        role=request.role,
-        system_prompt=system_prompts.get(request.role, system_prompts["founder"]),
-    )
+    try:
+        # Generate response
+        response_content = await generate_intelligent_response(
+            message=request.message,
+            intent=intent,
+            context=context,
+            llm=llm,
+            db=db,
+            role=request.role,
+            system_prompt=system_prompts.get(request.role, system_prompts["founder"]),
+        )
+    except Exception as e:
+        # Log error but return user-friendly message
+        import logging
+        logging.getLogger(__name__).error(f"Error generating response: {e}", exc_info=True)
+        response_content = "I'm having trouble processing your request right now. Please try again in a moment."
     
     # Add assistant message
     assistant_message = ChatMessage(
@@ -158,7 +193,10 @@ async def send_message(
     suggested_actions = generate_suggested_actions(intent, context)
     
     # Generate related insights
-    related_insights = await generate_related_insights(intent, db)
+    try:
+        related_insights = await generate_related_insights(intent, db)
+    except Exception:
+        related_insights = []
     
     return ChatResponse(
         message=assistant_message,
@@ -358,22 +396,26 @@ async def get_conversation_history(conversation_id: str) -> list[ChatMessage]:
     if conversation_id not in _conversations:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Conversation not found"
+            detail="Conversation not found or expired"
         )
     
-    return _conversations[conversation_id].history
+    context, _ = _conversations[conversation_id]
+    return context.history
 
 
 @router.post("/conversations/{conversation_id}/clear")
 async def clear_conversation(conversation_id: str) -> dict:
     """Clear conversation history."""
     if conversation_id in _conversations:
-        _conversations[conversation_id].history.clear()
+        context, created = _conversations[conversation_id]
+        context.history.clear()
+        # Reset timestamp
+        _conversations[conversation_id] = (context, datetime.utcnow())
         return {"message": "Conversation cleared", "conversation_id": conversation_id}
     
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
-        detail="Conversation not found"
+        detail="Conversation not found or expired"
     )
 
 

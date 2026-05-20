@@ -1,5 +1,6 @@
 """FastAPI application for StartupIntel."""
 
+import logging
 import os
 from pathlib import Path
 
@@ -9,6 +10,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from startupintel.api.routes import health, startup, investor, accelerator, termsheet, bot, chat
+from startupintel.config import get_settings
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 
 def create_app() -> FastAPI:
@@ -21,13 +30,16 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
     )
 
-    # CORS middleware
+    # CORS middleware - configured via environment for production safety
+    settings = get_settings()
+    allow_origins = settings.cors_allowed_origins.split(",") if settings.cors_allowed_origins else ["http://localhost:3000", "http://localhost:8080"]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=allow_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+        allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+        max_age=600,
     )
 
     # Get the base directory for static files
@@ -59,11 +71,13 @@ def create_app() -> FastAPI:
     # Global exception handlers
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
+        logger.error(f"Unhandled exception: {exc}", exc_info=True)
         return JSONResponse(
             status_code=500,
             content={
                 "detail": "Internal server error",
                 "error": str(exc) if app.debug else "An unexpected error occurred",
+                "request_id": getattr(request.state, "request_id", None),
             },
         )
 
