@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import os
 from datetime import datetime, timedelta, UTC
 from typing import AsyncGenerator
 from uuid import UUID, uuid4
@@ -11,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from startupintel.api.dependencies import DbDep, get_llm_client, get_retriever, rate_limit_dependency
+from startupintel.api.dependencies import DbDep, get_llm_client, get_retriever, rate_limit_dependency, get_redis_client
 from startupintel.bots.runway_bot import RunwayBot
 from startupintel.bots.obituary_bot import ObituaryBot
 from startupintel.bots.pmf_bot import PMFBot
@@ -93,13 +95,73 @@ class ConversationContext:
         return "general"
 
 
-# In-memory conversation store with TTL (use Redis in production)
-_conversations: dict[str, tuple[ConversationContext, datetime]] = {}
+# Conversation store configuration
 _CONVERSATION_TTL_HOURS = 24
+_USE_REDIS = os.getenv("USE_REDIS_CONVERSATIONS", "false").lower() == "true"
+
+# In-memory fallback (use when Redis is not available)
+_conversations: dict[str, tuple[ConversationContext, datetime]] = {}
 
 
-def get_or_create_conversation(conversation_id: str | None) -> tuple[str, ConversationContext]:
-    """Get existing conversation or create new one."""
+async def get_redis_conversation(redis, conversation_id: str) -> ConversationContext | None:
+    """Get conversation from Redis."""
+    try:
+        data = await redis.get(f"chat:{conversation_id}")
+        if data:
+            import json
+            parsed = json.loads(data)
+            context = ConversationContext()
+            context.history = [ChatMessage(**msg) for msg in parsed.get("history", [])]
+            context.detected_intent = parsed.get("detected_intent")
+            context.user_role = parsed.get("user_role")
+            context.entities = parsed.get("entities", {})
+            return context
+    except Exception:
+        pass
+    return None
+
+
+async def save_redis_conversation(redis, conversation_id: str, context: ConversationContext) -> None:
+    """Save conversation to Redis with TTL."""
+    try:
+        import json
+        data = {
+            "history": [msg.model_dump() for msg in context.history],
+            "detected_intent": context.detected_intent,
+            "user_role": context.user_role,
+            "entities": context.entities,
+            "updated_at": datetime.now(UTC).isoformat(),
+        }
+        await redis.setex(
+            f"chat:{conversation_id}",
+            timedelta(hours=_CONVERSATION_TTL_HOURS),
+            json.dumps(data)
+        )
+    except Exception:
+        pass
+
+
+async def get_or_create_conversation(
+    conversation_id: str | None,
+    redis=None
+) -> tuple[str, ConversationContext]:
+    """Get existing conversation or create new one.
+    
+    Uses Redis if available and configured, falls back to in-memory store.
+    """
+    # Try Redis first if available
+    if _USE_REDIS and redis:
+        if conversation_id:
+            context = await get_redis_conversation(redis, conversation_id)
+            if context:
+                return conversation_id, context
+        
+        new_id = conversation_id or str(uuid4())
+        context = ConversationContext()
+        await save_redis_conversation(redis, new_id, context)
+        return new_id, context
+    
+    # Fallback to in-memory store
     now = datetime.now(UTC)
     
     # Clean expired conversations
@@ -112,7 +174,6 @@ def get_or_create_conversation(conversation_id: str | None) -> tuple[str, Conver
     
     if conversation_id and conversation_id in _conversations:
         context, _ = _conversations[conversation_id]
-        # Update timestamp on access
         _conversations[conversation_id] = (context, now)
         return conversation_id, context
     
@@ -129,6 +190,7 @@ def get_or_create_conversation(conversation_id: str | None) -> tuple[str, Conver
 async def send_message(
     request: ChatRequest,
     db: DbDep,
+    redis=Depends(get_redis_client),
 ) -> ChatResponse:
     """Send a message to the conversational AI."""
     # Validate message length
@@ -145,7 +207,7 @@ async def send_message(
             detail="Message cannot be empty."
         )
     
-    conversation_id, context = get_or_create_conversation(request.conversation_id)
+    conversation_id, context = await get_or_create_conversation(request.conversation_id, redis)
     context.user_role = request.role
     
     # Add user message
