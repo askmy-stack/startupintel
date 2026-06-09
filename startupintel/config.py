@@ -33,6 +33,8 @@ class Settings(BaseSettings):
 
     embedding_model: str = "all-mpnet-base-v2"
     faiss_index_path: str = "./data/faiss_index"
+    rag_top_k: int = 5
+    rag_similarity_threshold: float = 0.7
 
     crunchbase_api_key: str | None = None
 
