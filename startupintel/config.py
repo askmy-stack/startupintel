@@ -29,9 +29,14 @@ class Settings(BaseSettings):
     groq_model: str = "llama-3.3-70b-versatile"
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "gemma3:4b"
+    llm_timeout: float = 60.0
 
     embedding_model: str = "all-mpnet-base-v2"
     faiss_index_path: str = "./data/faiss_index"
+    rag_top_k: int = 5
+    rag_similarity_threshold: float = 0.7
+
+    crunchbase_api_key: str | None = None
 
     api_host: str = "0.0.0.0"
     api_port: int = 8000
