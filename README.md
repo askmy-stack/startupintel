@@ -222,6 +222,12 @@ git pull
 git switch -c codex/your-change
 ```
 
+Install the pre-commit hooks once after setup:
+
+```bash
+pre-commit install
+```
+
 Run checks before opening a PR:
 
 ```bash

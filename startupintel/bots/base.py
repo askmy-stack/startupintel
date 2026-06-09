@@ -31,8 +31,11 @@ class BaseBot(ABC):
         self.llm = llm_client
         self.producer = producer
 
+    def cache_key(self, startup_id: UUID) -> str:
+        return f"{self.name}:{self.version}:{startup_id}"
+
     async def run(self, startup_id: UUID) -> BotResult:
-        cache_key = f"{self.name}:{startup_id}"
+        cache_key = self.cache_key(startup_id)
         cached = await self._get_cached(cache_key)
         if cached:
             return BotResult(**cached)
@@ -142,4 +145,3 @@ class BaseBot(ABC):
 
     @abstractmethod
     async def maybe_emit_event(self, result: BotResult) -> None: ...
-
