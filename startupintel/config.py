@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     embedding_model: str = "all-mpnet-base-v2"
     faiss_index_path: str = "./data/faiss_index"
 
+    crunchbase_api_key: str | None = None
+
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     api_secret_key: str = "change-me"
