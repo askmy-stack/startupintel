@@ -27,7 +27,7 @@ StartupIntel is designed to make those signals composable:
 
 ## Current Status
 
-The project is in foundation mode.
+The project is in foundation mode, with deterministic bot cores that work without external API keys.
 
 | Area | Status |
 |---|---|
@@ -37,27 +37,26 @@ The project is in foundation mode.
 | Core SQLAlchemy models | Working |
 | Config from `.env` | Working |
 | Base bot orchestration | Working |
-| RunwayBot scoring | Working |
-| High-stress event emission | Working with in-memory producer |
+| All 8 bot scoring cores | Working |
+| Bot threshold event emission | Working with in-memory producer |
 | PostgreSQL, Redis, Neo4j helpers | Scaffolded |
 | Real ingestion connectors | Planned |
 | Kafka workers | Planned |
 | Airflow DAG bodies | Planned |
-| Remaining seven bots | Planned |
 | RAG corpus and LLM synthesis | Planned |
 
 ## Bot Roadmap
 
 | Bot | Purpose | Status |
 |---|---|---|
-| RunwayBot | Detect financial stress from headcount, hiring, sentiment, domain, and funding signals | Foundation implemented |
-| ObituaryBot | Match startups against historical failure patterns from post-mortems | Planned |
-| TermBot | Decode term sheets and flag founder-unfriendly clauses | Planned |
-| PivotBot | Reconstruct product and positioning pivots from public history | Planned |
-| PMFBot | Detect PMF inflection from public traction signals | Planned |
-| AcceleratorBot | Rank accelerators by outcome-adjusted ROI | Planned |
-| InvestorBot | Score investor network value and centrality | Planned |
-| AcquiBot | Predict acqui-hire probability and likely acquirers | Planned |
+| RunwayBot | Detect financial stress from headcount, hiring, sentiment, domain, and funding signals | Scoring + events implemented |
+| ObituaryBot | Match startups against historical failure patterns from post-mortems | Scoring + events implemented |
+| TermBot | Decode term sheets and flag founder-unfriendly clauses | Clause scoring + events implemented |
+| PivotBot | Reconstruct product and positioning pivots from public history | Scoring + events implemented |
+| PMFBot | Detect PMF inflection from public traction signals | Scoring + changepoint events implemented |
+| AcceleratorBot | Rank accelerators by outcome-adjusted ROI | ROI scoring implemented |
+| InvestorBot | Score investor network value and centrality | Centrality scoring + graph projection implemented |
+| AcquiBot | Predict acqui-hire probability and likely acquirers | Probability scoring + acquirer ranking implemented |
 
 ## Architecture
 
@@ -227,6 +226,12 @@ Create a branch from `main`:
 git switch main
 git pull
 git switch -c codex/your-change
+```
+
+Install the pre-commit hooks once after setup:
+
+```bash
+pre-commit install
 ```
 
 Run checks before opening a PR:
