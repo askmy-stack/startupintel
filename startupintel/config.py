@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     runway_weight_funding_recency: float = Field(default=0.10, ge=0, le=1)
     runway_high_stress_threshold: float = 65.0
 
+    github_token: str | None = None
+    twitter_bearer_token: str | None = None
+    producthunt_token: str | None = None
+    sec_edgar_user_agent: str = "StartupIntel contact@startupintel.io"
+    app_store_api_key: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:
