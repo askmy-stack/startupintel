@@ -129,6 +129,12 @@ cp .env.example .env
 docker compose up -d
 ```
 
+Apply database migrations after Postgres is running:
+
+```bash
+alembic upgrade head
+```
+
 Seed sample data after Postgres is running:
 
 ```bash
@@ -244,15 +250,14 @@ StartupIntel is intended for public and permissioned data sources only. Do not c
 ## Roadmap
 
 1. Add real RunwayBot ingestion connectors.
-2. Add Alembic migration environment for the core models.
-3. Implement Kafka producer and consumer workers.
-4. Build ObituaryBot corpus ingestion and FAISS retrieval.
-5. Add TermBot PDF upload and clause scoring.
-6. Implement PivotBot and PMFBot signal pipelines.
-7. Add InvestorBot graph centrality scoring.
-8. Add AcquiBot model loading, SHAP summaries, and acquirer matching.
-9. Add unified brief synthesis and Slack digest.
-10. Add dashboard-ready response models and frontend surface.
+2. Implement Kafka producer and consumer workers.
+3. Build ObituaryBot corpus ingestion and FAISS retrieval.
+4. Add TermBot PDF upload and clause scoring.
+5. Implement PivotBot and PMFBot signal pipelines.
+6. Add InvestorBot graph centrality scoring.
+7. Add AcquiBot model loading, SHAP summaries, and acquirer matching.
+8. Add unified brief synthesis and Slack digest.
+9. Add dashboard-ready response models and frontend surface.
 
 ## License
 
