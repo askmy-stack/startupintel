@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import httpx
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from startupintel.ingestion.base import BaseConnector
 
 if TYPE_CHECKING:
-    from playwright.async_api import Page, Browser
+    pass
 
 
 class JobBoardsConnector(BaseConnector):

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from startupintel.scoring.normalizer import normalize_score, normalize_signal
+from startupintel.scoring.normalizer import normalize_signal
 
 
 @pytest.mark.parametrize("input_val,min_val,max_val,expected", [

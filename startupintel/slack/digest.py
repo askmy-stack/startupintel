@@ -87,10 +87,12 @@ class SlackDigest:
 
                     sections.append("\n".join(section_lines))
 
+                week_of = (datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%d")
+                sections_text = "\n\n".join(sections)
                 message = f"""📊 *Weekly StartupIntel Digest*
-*Week of {(datetime.utcnow() - timedelta(days=7)).strftime('%Y-%m-%d')}*
+*Week of {week_of}*
 
-{"\n\n".join(sections)}
+{sections_text}
 
 _Use `/analyze <startup>` for detailed insights._
 """

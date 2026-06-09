@@ -1,6 +1,5 @@
 """Bot management and status API routes."""
 
-from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select, func

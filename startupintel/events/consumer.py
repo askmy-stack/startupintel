@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from abc import ABC, abstractmethod
-from typing import Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
+from uuid import UUID
 
 if TYPE_CHECKING:
     from aiokafka import AIOKafkaConsumer
@@ -185,8 +187,6 @@ class MultiConsumerManager:
 
     async def start_all(self) -> None:
         """Start all consumers."""
-        import asyncio
-
         await asyncio.gather(*[c.start() for c in self.consumers], return_exceptions=True)
 
     async def stop_all(self) -> None:

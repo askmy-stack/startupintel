@@ -23,8 +23,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from startupintel.api.dependencies.auth import get_current_user, get_db, require_write_scope
-from startupintel.api.schemas.auth import UserResponse
+from startupintel.api.dependencies.auth import get_current_user, get_db
 from startupintel.config import get_settings
 from startupintel.db.models import UploadedFile, User
 from startupintel.utils.storage import (

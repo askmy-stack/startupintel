@@ -14,7 +14,7 @@ from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from startupintel.config import get_settings
-from startupintel.db.models import Startup, Investor, Accelerator, StartupScore
+from startupintel.db.models import Startup, Investor, Accelerator
 from startupintel.db.postgres import get_session
 from startupintel.db.redis import get_redis
 from startupintel.db.neo4j import get_neo4j_driver

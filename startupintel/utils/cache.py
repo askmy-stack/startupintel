@@ -9,7 +9,7 @@ from datetime import timedelta
 from functools import wraps
 from typing import Any, Callable, TypeVar, cast
 
-from fastapi import Request, Response
+from fastapi import Request
 from startupintel.db.redis import get_redis
 
 logger = logging.getLogger(__name__)

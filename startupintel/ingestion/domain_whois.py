@@ -41,7 +41,7 @@ class DomainWHOISConnector(BaseConnector):
                     try:
                         expiry_dt = datetime.strptime(str(expiry), "%Y-%m-%d %H:%M:%S")
                         days_until_expiry = (expiry_dt - datetime.utcnow()).days
-                    except:
+                    except (ValueError, TypeError):
                         pass
 
             # Extract creation date
@@ -57,7 +57,7 @@ class DomainWHOISConnector(BaseConnector):
                     try:
                         creation_dt = datetime.strptime(str(creation), "%Y-%m-%d %H:%M:%S")
                         domain_age_days = (datetime.utcnow() - creation_dt).days
-                    except:
+                    except (ValueError, TypeError):
                         pass
 
             return {

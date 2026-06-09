@@ -5,14 +5,13 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from startupintel.api.dependencies.auth import (
     get_current_user,
     require_admin,
-    require_role,
     get_db,
 )
 from startupintel.api.schemas.auth import (
@@ -21,7 +20,6 @@ from startupintel.api.schemas.auth import (
     APIKeyListResponse,
     APIKeyResponse,
     LoginRequest,
-    OrganizationCreate,
     OrganizationResponse,
     OrganizationUpdate,
     PasswordChangeRequest,
@@ -39,7 +37,6 @@ from startupintel.utils.auth import (
     create_refresh_token,
     generate_api_key,
     get_password_hash,
-    verify_api_key,
     verify_password,
 )
 

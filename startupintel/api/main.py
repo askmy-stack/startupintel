@@ -1,7 +1,6 @@
 """FastAPI application for StartupIntel."""
 
 import logging
-import os
 import time
 from pathlib import Path
 from uuid import uuid4

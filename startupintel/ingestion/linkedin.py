@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -122,11 +121,11 @@ class LinkedInConnector(BaseConnector):
                     text = await element.text_content()
                     if text:
                         return text.strip()
-                except:
+                except Exception:
                     continue
 
             return ""
-        except:
+        except Exception:
             return ""
 
     async def _extract_hiring_info(self, page: Page) -> str:
@@ -139,7 +138,7 @@ class LinkedInConnector(BaseConnector):
                 text = await jobs_link.text_content()
                 return text.strip() if text else ""
             return ""
-        except:
+        except Exception:
             return ""
 
     def _parse_headcount(self, text: str) -> dict:
@@ -198,13 +197,13 @@ class LinkedInConnector(BaseConnector):
                         "title": title.strip() if title else None,
                         "location": location.strip() if location else None,
                     })
-                except:
+                except Exception:
                     continue
 
             await context.close()
             return jobs
 
-        except Exception as e:
+        except Exception:
             await context.close()
             return []
 

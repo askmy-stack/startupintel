@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Query, status
 from sqlalchemy import select, func
 
 from startupintel.api.dependencies import DbDep, get_investor_or_404
@@ -73,7 +73,7 @@ async def delete_investor(investor_id: UUID, db: DbDep) -> None:
 @router.get("/{investor_id}/network", response_model=InvestorBotOutput)
 async def get_investor_network(investor_id: UUID, db: DbDep) -> InvestorBotOutput:
     """Get network analysis for an investor."""
-    investor = await get_investor_or_404(db, investor_id)
+    await get_investor_or_404(db, investor_id)
 
     bot = InvestorBot(
         db=db,

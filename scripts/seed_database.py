@@ -312,7 +312,7 @@ async def verify_seed() -> None:
         headcount_count = await session.scalar(select(func.count()).select_from(HeadcountSnapshot))
         score_count = await session.scalar(select(func.count()).select_from(StartupScore))
 
-        print(f"\nDatabase verification:")
+        print("\nDatabase verification:")
         print(f"  - Startups: {startup_count}")
         print(f"  - Investors: {investor_count}")
         print(f"  - Accelerators: {accelerator_count}")

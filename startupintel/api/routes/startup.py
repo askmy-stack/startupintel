@@ -1,42 +1,41 @@
 """Startup API routes with CRUD and bot integration."""
 
 import logging
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, status
-
-logger = logging.getLogger(__name__)
-from sqlalchemy import select, func
-from sqlalchemy.orm import selectinload
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
+from pydantic import BaseModel as PydanticBaseModel
+from sqlalchemy import func, select
 
 from startupintel.api.dependencies import DbDep, get_startup_or_404
 from startupintel.api.schemas import (
-    StartupCreate,
-    StartupResponse,
-    StartupUpdate,
-    StartupListResponse,
-    StartupSummary,
-    StartupSearchRequest,
-    StartupSearchResponse,
-    RunwayBotOutput,
-    ObituaryBotOutput,
-    PMFBotOutput,
-    PivotBotOutput,
     AcquiBotOutput,
-    BotScoreListResponse,
     BotRunResponse,
+    BotScoreListResponse,
+    ObituaryBotOutput,
+    PivotBotOutput,
+    PMFBotOutput,
+    RunwayBotOutput,
+    StartupCreate,
+    StartupListResponse,
+    StartupResponse,
+    StartupSearchResponse,
+    StartupSummary,
+    StartupUpdate,
 )
-from startupintel.bots.runway_bot import RunwayBot
-from startupintel.bots.obituary_bot import ObituaryBot
-from startupintel.bots.pmf_bot import PMFBot
-from startupintel.bots.pivot_bot import PivotBot
 from startupintel.bots.acqui_bot import AcquiBot
+from startupintel.bots.obituary_bot import ObituaryBot
+from startupintel.bots.pivot_bot import PivotBot
+from startupintel.bots.pmf_bot import PMFBot
+from startupintel.bots.runway_bot import RunwayBot
 from startupintel.db.models import Startup, StartupScore
 from startupintel.events.producer import InMemoryEventProducer
 from startupintel.llm.client import get_llm_client
 from startupintel.rag.retriever import get_retriever
-from startupintel.utils.cache import cached, invalidate_cache_pattern
+from startupintel.utils.cache import invalidate_cache_pattern
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/startup", tags=["startups"])
 
@@ -212,7 +211,7 @@ async def delete_startup(startup_id: UUID, db: DbDep) -> None:
 @router.get("/{startup_id}/stress", response_model=RunwayBotOutput)
 async def get_runway_stress(startup_id: UUID, db: DbDep) -> RunwayBotOutput:
     """Get runway stress analysis for a startup."""
-    startup = await get_startup_or_404(db, startup_id)
+    await get_startup_or_404(db, startup_id)
 
     bot = RunwayBot(
         db=db,
@@ -243,7 +242,7 @@ async def get_runway_stress(startup_id: UUID, db: DbDep) -> RunwayBotOutput:
 @router.get("/{startup_id}/obituary", response_model=ObituaryBotOutput)
 async def get_obituary_analysis(startup_id: UUID, db: DbDep) -> ObituaryBotOutput:
     """Get failure pattern analysis for a startup."""
-    startup = await get_startup_or_404(db, startup_id)
+    await get_startup_or_404(db, startup_id)
 
     bot = ObituaryBot(
         db=db,
@@ -274,7 +273,7 @@ async def get_obituary_analysis(startup_id: UUID, db: DbDep) -> ObituaryBotOutpu
 @router.get("/{startup_id}/pmf", response_model=PMFBotOutput)
 async def get_pmf_analysis(startup_id: UUID, db: DbDep) -> PMFBotOutput:
     """Get product-market fit analysis for a startup."""
-    startup = await get_startup_or_404(db, startup_id)
+    await get_startup_or_404(db, startup_id)
 
     bot = PMFBot(
         db=db,
@@ -307,7 +306,7 @@ async def get_pmf_analysis(startup_id: UUID, db: DbDep) -> PMFBotOutput:
 @router.get("/{startup_id}/pivot", response_model=PivotBotOutput)
 async def get_pivot_analysis(startup_id: UUID, db: DbDep) -> PivotBotOutput:
     """Get pivot detection analysis for a startup."""
-    startup = await get_startup_or_404(db, startup_id)
+    await get_startup_or_404(db, startup_id)
 
     bot = PivotBot(
         db=db,
@@ -342,7 +341,7 @@ async def get_pivot_analysis(startup_id: UUID, db: DbDep) -> PivotBotOutput:
 @router.get("/{startup_id}/acqui", response_model=AcquiBotOutput)
 async def get_acqui_analysis(startup_id: UUID, db: DbDep) -> AcquiBotOutput:
     """Get acqui-hire probability analysis for a startup."""
-    startup = await get_startup_or_404(db, startup_id)
+    await get_startup_or_404(db, startup_id)
 
     bot = AcquiBot(
         db=db,
@@ -388,7 +387,7 @@ async def get_startup_scores(
     limit: int = Query(20, ge=1, le=100),
 ) -> BotScoreListResponse:
     """Get score history for a startup."""
-    startup = await get_startup_or_404(db, startup_id)
+    await get_startup_or_404(db, startup_id)
 
     stmt = (
         select(StartupScore)
@@ -422,7 +421,7 @@ async def run_bot(
     db: DbDep,
 ) -> BotRunResponse:
     """Manually run a bot for a startup."""
-    startup = await get_startup_or_404(db, startup_id)
+    await get_startup_or_404(db, startup_id)
 
     # Map bot name to class
     bot_classes = {
@@ -460,8 +459,6 @@ async def run_bot(
 
 # ========== Batch Operations ==========
 
-from pydantic import BaseModel as PydanticBaseModel
-from fastapi import BackgroundTasks
 
 class BatchBotRequest(PydanticBaseModel):
     """Request for batch bot analysis."""
@@ -501,7 +498,6 @@ async def batch_analyze(
     This runs analyses in parallel for better performance.
     Results are returned immediately (synchronous) or can be sent to webhook.
     """
-    from datetime import UTC
     import asyncio
     from uuid import uuid4
     
@@ -635,7 +631,7 @@ async def fulltext_search(
     
     Searches across name, domain, industry, city, and country.
     """
-    from sqlalchemy import func, or_, text
+    from sqlalchemy import func
     
     # Build the search query using to_tsquery
     # Convert query to tsquery format (add & between words)

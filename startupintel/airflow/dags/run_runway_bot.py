@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
@@ -30,8 +30,7 @@ def run_runway_bot_for_startup(startup_id: str, **context) -> dict:
         sys.path.insert(0, project_root)
 
     async def _run():
-        from startupintel.config import get_settings
-        from startupintel.db.postgres import AsyncSessionLocal, engine
+        from startupintel.db.postgres import AsyncSessionLocal
         from startupintel.db.redis import get_redis
         from startupintel.db.neo4j import get_neo4j_driver
         from startupintel.llm.client import get_llm_client
@@ -39,7 +38,6 @@ def run_runway_bot_for_startup(startup_id: str, **context) -> dict:
         from startupintel.bots.runway_bot import RunwayBot
         from uuid import UUID
 
-        settings = get_settings()
         db = AsyncSessionLocal()
         redis = get_redis()
         neo4j = get_neo4j_driver()

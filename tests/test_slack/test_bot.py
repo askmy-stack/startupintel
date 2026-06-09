@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import Mock, patch
 
 from startupintel.slack.bot import SlackBot, get_slack_bot, set_slack_bot
 

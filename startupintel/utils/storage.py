@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import mimetypes
-import os
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
 from typing import BinaryIO

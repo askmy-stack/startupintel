@@ -2,29 +2,19 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import re
 from datetime import datetime, timedelta, UTC
 from typing import AsyncGenerator
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from startupintel.api.dependencies import DbDep, get_llm_client, get_retriever, rate_limit_dependency, get_redis_client
-from startupintel.bots.runway_bot import RunwayBot
-from startupintel.bots.obituary_bot import ObituaryBot
-from startupintel.bots.pmf_bot import PMFBot
-from startupintel.bots.pivot_bot import PivotBot
-from startupintel.bots.acqui_bot import AcquiBot
-from startupintel.bots.investor_bot import InvestorBot
-from startupintel.bots.accelerator_bot import AcceleratorBot
-from startupintel.bots.term_bot import TermBot
+from startupintel.api.dependencies import DbDep, get_llm_client, rate_limit_dependency, get_redis_client
 from startupintel.db.models import Startup
-from startupintel.events.producer import InMemoryEventProducer
 from sqlalchemy import select
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -335,7 +325,6 @@ async def stream_message(
     
     async def generate_stream() -> AsyncGenerator[str, None]:
         """Generate streaming response."""
-        import json
         
         # Send conversation ID first
         yield f"data: {json.dumps({'type': 'conversation_id', 'id': conversation_id})}\n\n"
@@ -415,7 +404,7 @@ Response:"""
     try:
         response = await llm.complete(prompt, temperature=0.7, max_tokens=1024)
         return response
-    except Exception as e:
+    except Exception:
         return f"I'm here to help with your startup intelligence needs. I noticed you're asking about {intent.replace('_', ' ')}. Could you tell me which startup you'd like me to analyze?"
 
 

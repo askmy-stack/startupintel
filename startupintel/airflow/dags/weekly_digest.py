@@ -32,8 +32,8 @@ def generate_weekly_digest(**context) -> dict:
         from startupintel.db.postgres import AsyncSessionLocal
         from startupintel.db.models import StartupScore, Startup
         from startupintel.llm.client import get_llm_client
-        from sqlalchemy import select, func, desc
-        from datetime import datetime, timedelta
+        from sqlalchemy import select, desc
+        from datetime import timedelta
 
         db = AsyncSessionLocal()
         llm = get_llm_client()

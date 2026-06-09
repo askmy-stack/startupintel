@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Query, status
 from sqlalchemy import select, func
 
 from startupintel.api.dependencies import DbDep, get_accelerator_or_404

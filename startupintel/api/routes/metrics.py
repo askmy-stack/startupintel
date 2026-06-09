@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import time
-from typing import Any
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Response
 from prometheus_client import (
     Counter,
     Histogram,

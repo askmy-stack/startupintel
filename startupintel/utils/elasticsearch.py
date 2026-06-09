@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
 from uuid import UUID
 
 from elasticsearch import AsyncElasticsearch
-from elasticsearch.helpers import async_bulk
 
 from startupintel.config import get_settings
 

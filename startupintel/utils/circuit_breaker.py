@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum, auto
 from functools import wraps
 from typing import Any, Callable, TypeVar
@@ -108,7 +108,7 @@ class CircuitBreaker:
             result = await func(*args, **kwargs)
             await self._record_success()
             return result
-        except self.expected_exception as e:
+        except self.expected_exception:
             await self._record_failure()
             raise
     

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-import asyncio
 
 from startupintel.events.producer import InMemoryEventProducer, KafkaEventProducer, get_event_producer, set_event_producer
 

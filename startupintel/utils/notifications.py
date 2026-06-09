@@ -6,7 +6,6 @@ import html
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
 from uuid import UUID
 
 import httpx

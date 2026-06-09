@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import httpx
-import json
 from datetime import datetime, timedelta
 
 from startupintel.config import get_settings
@@ -96,7 +95,6 @@ class AppStoreConnector(BaseConnector):
 
     async def _get_reviews(self, client: httpx.AsyncClient, app_id: str) -> list[dict]:
         """Fetch app reviews from RSS feed."""
-        import feedparser
 
         try:
             # App Store provides RSS feeds for reviews
@@ -144,7 +142,7 @@ class AppStoreConnector(BaseConnector):
                         dt = datetime.fromisoformat(review_date.replace("Z", "+00:00"))
                         if dt.replace(tzinfo=None) > cutoff:
                             recent_count += 1
-                    except:
+                    except (ValueError, TypeError):
                         pass
 
             return {

@@ -11,7 +11,6 @@ from startupintel.db.models import HeadcountSnapshot, Startup
 from startupintel.events.topics import STARTUP_STRESS_HIGH
 from startupintel.ingestion.domain_whois import DomainWHOISConnector
 from startupintel.ingestion.job_boards import JobBoardsConnector
-from startupintel.ingestion.linkedin import LinkedInConnector
 from startupintel.ingestion.twitter import TwitterConnector
 
 
@@ -70,8 +69,7 @@ class RunwayBot(BaseBot):
         if not self.db:
             return 0.0
 
-        from sqlalchemy import select
-        from datetime import datetime, timedelta, UTC
+        from datetime import datetime, UTC
 
         cutoff = datetime.now(UTC) - timedelta(days=30)
 

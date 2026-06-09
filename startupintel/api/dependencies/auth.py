@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from startupintel.api.schemas.auth import UserRole, APIKeyScope, has_permission
-from startupintel.db.models import APIKey, Organization, RefreshToken, User
+from startupintel.db.models import APIKey, Organization, User
 from startupintel.db.postgres import async_session
 from startupintel.utils.auth import decode_token, verify_api_key
 
@@ -66,7 +66,7 @@ async def get_current_user(
     stmt = (
         select(User)
         .where(User.id == UUID(user_id))
-        .where(User.is_active == True)
+        .where(User.is_active.is_(True))
         .options(select(User).selectinload(User.organization))
     )
     result = await db.execute(stmt)
@@ -104,7 +104,7 @@ async def get_current_user_from_api_key(
     
     # Find API key by prefix
     prefix = api_key[:8]
-    stmt = select(APIKey).where(APIKey.key_prefix == prefix).where(APIKey.is_active == True)
+    stmt = select(APIKey).where(APIKey.key_prefix == prefix).where(APIKey.is_active.is_(True))
     result = await db.execute(stmt)
     api_key_obj = result.scalar_one_or_none()
     

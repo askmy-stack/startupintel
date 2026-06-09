@@ -5,7 +5,6 @@ from __future__ import annotations
 import httpx
 from datetime import datetime, timedelta
 
-from startupintel.config import get_settings
 from startupintel.ingestion.base import BaseConnector
 
 try:

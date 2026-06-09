@@ -6,23 +6,10 @@ import asyncio
 import json
 import logging
 from datetime import datetime, UTC
-from typing import Any
-from uuid import UUID
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
-from startupintel.api.dependencies import get_db, get_redis_client
-from startupintel.bots.base import BaseBot
-from startupintel.bots.runway_bot import RunwayBot
-from startupintel.bots.obituary_bot import ObituaryBot
-from startupintel.bots.pmf_bot import PMFBot
-from startupintel.bots.pivot_bot import PivotBot
-from startupintel.bots.acqui_bot import AcquiBot
-from startupintel.db.models import Startup
-from startupintel.llm.client import get_llm_client
-from startupintel.rag.retriever import get_retriever
-from startupintel.events.producer import InMemoryEventProducer
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ws", tags=["websocket"])

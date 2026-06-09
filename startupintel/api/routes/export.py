@@ -6,15 +6,13 @@ import csv
 import io
 import json
 from datetime import datetime, UTC
-from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 
 from startupintel.api.dependencies import DbDep
-from startupintel.api.schemas import StartupResponse
 from startupintel.db.models import Startup, StartupScore
 
 router = APIRouter(prefix="/export", tags=["export"])

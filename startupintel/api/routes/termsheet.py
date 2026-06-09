@@ -8,7 +8,7 @@ from sqlalchemy import select
 from startupintel.api.dependencies import DbDep, get_startup_or_404
 from startupintel.api.schemas import TermBotOutput, ClauseAnalysis
 from startupintel.bots.term_bot import TermBot
-from startupintel.db.models import TermSheetAnalysis, Startup
+from startupintel.db.models import TermSheetAnalysis
 from startupintel.events.producer import InMemoryEventProducer
 
 router = APIRouter(prefix="/termsheet", tags=["termsheets"])
@@ -63,7 +63,7 @@ async def analyze_termsheet_file(
         # Try other encodings or raise error
         try:
             text = content.decode("latin-1")
-        except:
+        except UnicodeDecodeError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Unable to decode file. Please provide text-based term sheet.",
@@ -79,7 +79,7 @@ async def analyze_startup_termsheet(
     db: DbDep,
 ) -> TermBotOutput:
     """Analyze term sheet for a specific startup."""
-    startup = await get_startup_or_404(db, startup_id)
+    await get_startup_or_404(db, startup_id)
 
     bot = TermBot(producer=InMemoryEventProducer())
     result = await bot.analyze_text(text, startup_id)
@@ -132,7 +132,7 @@ async def get_termsheet_history(
     limit: int = 10,
 ) -> list[dict]:
     """Get term sheet analysis history for a startup."""
-    startup = await get_startup_or_404(db, startup_id)
+    await get_startup_or_404(db, startup_id)
 
     result = await db.execute(
         select(TermSheetAnalysis)
