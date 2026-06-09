@@ -27,7 +27,7 @@ StartupIntel is designed to make those signals composable:
 
 ## Current Status
 
-The project is in foundation mode.
+The project is in foundation mode, with deterministic bot cores that work without external API keys.
 
 | Area | Status |
 |---|---|
@@ -37,27 +37,26 @@ The project is in foundation mode.
 | Core SQLAlchemy models | Working |
 | Config from `.env` | Working |
 | Base bot orchestration | Working |
-| RunwayBot scoring | Working |
-| High-stress event emission | Working with in-memory producer |
+| All 8 bot scoring cores | Working |
+| Bot threshold event emission | Working with in-memory producer |
 | PostgreSQL, Redis, Neo4j helpers | Scaffolded |
 | Real ingestion connectors | Planned |
 | Kafka workers | Planned |
 | Airflow DAG bodies | Planned |
-| Remaining seven bots | Planned |
 | RAG corpus and LLM synthesis | Planned |
 
 ## Bot Roadmap
 
 | Bot | Purpose | Status |
 |---|---|---|
-| RunwayBot | Detect financial stress from headcount, hiring, sentiment, domain, and funding signals | Foundation implemented |
-| ObituaryBot | Match startups against historical failure patterns from post-mortems | Planned |
-| TermBot | Decode term sheets and flag founder-unfriendly clauses | Planned |
-| PivotBot | Reconstruct product and positioning pivots from public history | Planned |
-| PMFBot | Detect PMF inflection from public traction signals | Planned |
-| AcceleratorBot | Rank accelerators by outcome-adjusted ROI | Planned |
-| InvestorBot | Score investor network value and centrality | Planned |
-| AcquiBot | Predict acqui-hire probability and likely acquirers | Planned |
+| RunwayBot | Detect financial stress from headcount, hiring, sentiment, domain, and funding signals | Scoring + events implemented |
+| ObituaryBot | Match startups against historical failure patterns from post-mortems | Scoring + events implemented |
+| TermBot | Decode term sheets and flag founder-unfriendly clauses | Clause scoring + events implemented |
+| PivotBot | Reconstruct product and positioning pivots from public history | Scoring + events implemented |
+| PMFBot | Detect PMF inflection from public traction signals | Scoring + changepoint events implemented |
+| AcceleratorBot | Rank accelerators by outcome-adjusted ROI | ROI scoring implemented |
+| InvestorBot | Score investor network value and centrality | Centrality scoring + graph projection implemented |
+| AcquiBot | Predict acqui-hire probability and likely acquirers | Probability scoring + acquirer ranking implemented |
 
 ## Architecture
 
@@ -127,6 +126,12 @@ Run the infrastructure stack:
 ```bash
 cp .env.example .env
 docker compose up -d
+```
+
+Apply database migrations after Postgres is running:
+
+```bash
+alembic upgrade head
 ```
 
 Seed sample data after Postgres is running:
@@ -223,6 +228,12 @@ git pull
 git switch -c codex/your-change
 ```
 
+Install the pre-commit hooks once after setup:
+
+```bash
+pre-commit install
+```
+
 Run checks before opening a PR:
 
 ```bash
@@ -244,15 +255,14 @@ StartupIntel is intended for public and permissioned data sources only. Do not c
 ## Roadmap
 
 1. Add real RunwayBot ingestion connectors.
-2. Add Alembic migration environment for the core models.
-3. Implement Kafka producer and consumer workers.
-4. Build ObituaryBot corpus ingestion and FAISS retrieval.
-5. Add TermBot PDF upload and clause scoring.
-6. Implement PivotBot and PMFBot signal pipelines.
-7. Add InvestorBot graph centrality scoring.
-8. Add AcquiBot model loading, SHAP summaries, and acquirer matching.
-9. Add unified brief synthesis and Slack digest.
-10. Add dashboard-ready response models and frontend surface.
+2. Implement Kafka producer and consumer workers.
+3. Build ObituaryBot corpus ingestion and FAISS retrieval.
+4. Add TermBot PDF upload and clause scoring.
+5. Implement PivotBot and PMFBot signal pipelines.
+6. Add InvestorBot graph centrality scoring.
+7. Add AcquiBot model loading, SHAP summaries, and acquirer matching.
+8. Add unified brief synthesis and Slack digest.
+9. Add dashboard-ready response models and frontend surface.
 
 ## License
 
