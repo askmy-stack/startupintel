@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     api_secret_key: str = "change-me"
+    access_token_expire_minutes: int = 30
+    refresh_token_expire_days: int = 30
 
     runway_weight_headcount: float = Field(default=0.35, ge=0, le=1)
     runway_weight_job_postings: float = Field(default=0.25, ge=0, le=1)

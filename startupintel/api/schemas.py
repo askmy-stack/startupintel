@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SimilarCase(BaseModel):
@@ -38,4 +38,115 @@ class RunwayBotOutput(BaseModel):
 class HealthResponse(BaseModel):
     status: str = "ok"
     service: str = "startupintel-api"
+
+
+# ========== Startup CRUD ==========
+
+
+class StartupCreate(BaseModel):
+    name: str
+    domain: str
+    crunchbase_id: str | None = None
+    founded_year: int | None = None
+    industry: str | None = None
+    stage: str | None = None
+    hq_city: str | None = None
+    hq_country: str | None = None
+    employee_count: int | None = None
+    total_funding_usd: float | None = None
+    last_funding_date: datetime | None = None
+
+
+class StartupResponse(StartupCreate):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class StartupListResponse(BaseModel):
+    items: list[StartupResponse]
+    total: int
+
+
+# ========== Investor CRUD ==========
+
+
+class InvestorCreate(BaseModel):
+    name: str
+    firm: str | None = None
+    linkedin_url: str | None = None
+    crunchbase_id: str | None = None
+    centrality_score: float | None = None
+    value_add_score: float | None = None
+    betweenness: float | None = None
+    eigenvector: float | None = None
+    portfolio_count: int | None = None
+
+
+class InvestorResponse(InvestorCreate):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    updated_at: datetime
+
+
+class InvestorListResponse(BaseModel):
+    items: list[InvestorResponse]
+    total: int
+
+
+# ========== Accelerator CRUD ==========
+
+
+class AcceleratorCreate(BaseModel):
+    name: str
+    location: str
+    cohort_count: int = 0
+    follow_on_rate: float | None = None
+    median_time_to_series_a_months: float | None = None
+    survival_rate_3yr: float | None = None
+    unicorn_rate: float | None = None
+    shutdown_rate: float | None = None
+    roi_score: float | None = None
+    industry_focus: str | None = None
+    stage_focus: str | None = None
+
+
+class AcceleratorResponse(AcceleratorCreate):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    updated_at: datetime
+
+
+class AcceleratorListResponse(BaseModel):
+    items: list[AcceleratorResponse]
+    total: int
+
+
+# ========== Term sheet CRUD ==========
+
+
+class TermSheetCreate(BaseModel):
+    startup_id: UUID | None = None
+    raw_text: str
+    founder_friendliness_score: float
+    red_flags: list = Field(default_factory=list)
+    clause_scores: dict = Field(default_factory=dict)
+    market_benchmark: dict = Field(default_factory=dict)
+    llm_diagnosis: str | None = None
+
+
+class TermSheetResponse(TermSheetCreate):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    analyzed_at: datetime
+
+
+class TermSheetListResponse(BaseModel):
+    items: list[TermSheetResponse]
+    total: int
 
