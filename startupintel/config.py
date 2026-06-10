@@ -56,6 +56,8 @@ class Settings(BaseSettings):
     producthunt_token: str | None = None
     sec_edgar_user_agent: str = "StartupIntel contact@startupintel.io"
     app_store_api_key: str | None = None
+    linkedin_email: str | None = None
+    linkedin_password: str | None = None
 
     @model_validator(mode="after")
     def _reject_insecure_defaults(self) -> "Settings":
