@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from startupintel.api.routes import health, startup
+from startupintel.api.routes import accelerator, health, investor, startup, termsheet
 
 
 def create_app() -> FastAPI:
@@ -11,6 +11,9 @@ def create_app() -> FastAPI:
     )
     app.include_router(health.router)
     app.include_router(startup.router)
+    app.include_router(investor.router)
+    app.include_router(accelerator.router)
+    app.include_router(termsheet.router)
     return app
 
 
