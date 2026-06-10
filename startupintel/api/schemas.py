@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import Enum
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -149,4 +150,51 @@ class TermSheetResponse(TermSheetCreate):
 class TermSheetListResponse(BaseModel):
     items: list[TermSheetResponse]
     total: int
+
+
+# ========== Auth schemas ==========
+
+
+class UserRole(str, Enum):
+    ADMIN = "admin"
+    ANALYST = "analyst"
+    VIEWER = "viewer"
+
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str = Field(min_length=8)
+    first_name: str | None = None
+    last_name: str | None = None
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+
+class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    email: str
+    first_name: str | None = None
+    last_name: str | None = None
+    role: str
+    is_active: bool
+    email_verified: bool
+    organization_id: UUID
+    created_at: datetime
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    user: UserResponse
 
