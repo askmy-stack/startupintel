@@ -7,6 +7,7 @@ from startupintel.api.routes import (
     investor,
     startup,
     termsheet,
+    websocket,
 )
 
 
@@ -22,6 +23,7 @@ def create_app() -> FastAPI:
     app.include_router(accelerator.router)
     app.include_router(termsheet.router)
     app.include_router(auth.router)
+    app.include_router(websocket.router)
     return app
 
 
