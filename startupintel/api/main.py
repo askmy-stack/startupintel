@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from startupintel.api.routes import (
     accelerator,
     auth,
+    bot,
     chat,
     export,
     feature_flags,
@@ -32,6 +33,7 @@ def create_app() -> FastAPI:
     app.include_router(metrics.router)
     app.include_router(feature_flags.router)
     app.include_router(chat.router)
+    app.include_router(bot.router)
     return app
 
 

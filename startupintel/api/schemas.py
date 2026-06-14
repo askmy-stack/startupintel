@@ -198,3 +198,16 @@ class TokenResponse(BaseModel):
     expires_in: int
     user: UserResponse
 
+
+class BotRunResponse(BaseModel):
+    startup_id: UUID
+    bot_name: str
+    score: float
+    status: str
+    computed_at: datetime
+
+
+class BotScoreListResponse(BaseModel):
+    items: list[BotRunResponse]
+    total: int
+
