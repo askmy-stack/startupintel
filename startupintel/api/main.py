@@ -7,6 +7,7 @@ from startupintel.api.routes import (
     chat,
     export,
     feature_flags,
+    files,
     health,
     investor,
     metrics,
@@ -34,6 +35,7 @@ def create_app() -> FastAPI:
     app.include_router(feature_flags.router)
     app.include_router(chat.router)
     app.include_router(bot.router)
+    app.include_router(files.router)
     return app
 
 

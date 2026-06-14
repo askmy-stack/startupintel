@@ -59,6 +59,16 @@ class Settings(BaseSettings):
     linkedin_email: str | None = None
     linkedin_password: str | None = None
 
+    storage_provider: Literal["local", "s3", "minio"] = "local"
+    storage_local_path: str = "./data/uploads"
+    storage_bucket: str = "startupintel-files"
+    s3_endpoint_url: str | None = None
+    s3_access_key: str | None = None
+    s3_secret_key: str | None = None
+    s3_region: str = "us-east-1"
+    max_upload_size_mb: int = 50
+    allowed_file_types: str = ".pdf,.doc,.docx,.txt,.csv,.json,.jpg,.jpeg,.png"
+
     @model_validator(mode="after")
     def _reject_insecure_defaults(self) -> "Settings":
         if self.environment == "development":
