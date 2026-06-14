@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     kafka_bootstrap_servers: str = "localhost:9092"
     kafka_consumer_group: str = "startupintel-bots"
+    elasticsearch_url: str | None = None
 
     llm_provider: Literal["groq", "ollama"] = "groq"
     groq_api_key: str | None = None
