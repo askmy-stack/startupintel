@@ -6,6 +6,7 @@ from startupintel.api.routes import (
     export,
     health,
     investor,
+    metrics,
     startup,
     termsheet,
     websocket,
@@ -26,6 +27,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(websocket.router)
     app.include_router(export.router)
+    app.include_router(metrics.router)
     return app
 
 
