@@ -59,6 +59,16 @@ class Settings(BaseSettings):
     linkedin_email: str | None = None
     linkedin_password: str | None = None
 
+    slack_bot_token: str | None = None
+    slack_app_token: str | None = None
+    slack_digest_channel: str = "#startupintel"
+
+    email_from_address: str = "noreply@startupintel.io"
+    sendgrid_api_key: str | None = None
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    aws_region: str = "us-east-1"
+
     storage_provider: Literal["local", "s3", "minio"] = "local"
     storage_local_path: str = "./data/uploads"
     storage_bucket: str = "startupintel-files"
