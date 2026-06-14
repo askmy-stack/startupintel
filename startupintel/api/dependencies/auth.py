@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from startupintel.api.dependencies import get_db
+from startupintel.api.schemas import UserRole
 from startupintel.db.models import User
 from startupintel.utils.auth import decode_token
 
@@ -60,4 +61,14 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    return user
+
+
+async def require_admin(user: User = Depends(get_current_user)) -> User:
+    """Require the authenticated user to have the admin role."""
+    if user.role != UserRole.ADMIN.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required",
+        )
     return user
