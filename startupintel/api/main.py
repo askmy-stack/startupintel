@@ -1,4 +1,8 @@
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from startupintel.api.routes import (
     accelerator,
@@ -36,6 +40,19 @@ def create_app() -> FastAPI:
     app.include_router(chat.router)
     app.include_router(bot.router)
     app.include_router(files.router)
+
+    static_dir = Path(__file__).parent.parent / "static"
+    if static_dir.exists():
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+    @app.get("/", include_in_schema=False)
+    async def serve_ui() -> object:
+        """Serve the dashboard UI when present, else a small API pointer."""
+        ui_file = static_dir / "index.html"
+        if ui_file.exists():
+            return FileResponse(str(ui_file))
+        return {"message": "StartupIntel API", "docs": "/docs", "ui": "/static/index.html"}
+
     return app
 
 
