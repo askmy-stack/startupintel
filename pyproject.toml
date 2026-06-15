@@ -52,6 +52,9 @@ search = [
 slack = [
   "slack-bolt>=1.18.0",
 ]
+airflow = [
+  "apache-airflow>=2.8,<3",
+]
 dev = [
   "pytest>=8.2.0",
   "pytest-asyncio>=0.23.6",
