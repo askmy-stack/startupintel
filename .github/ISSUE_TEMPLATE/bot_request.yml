@@ -1,0 +1,10 @@
+name: Bot Request
+description: Request a new bot integration
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Please describe the bot integration you would like.
+    validations:
+      required: true

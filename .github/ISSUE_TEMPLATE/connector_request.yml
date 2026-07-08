@@ -1,0 +1,10 @@
+name: Connector Request
+description: Request a new connector
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Please describe the connector you need.
+    validations:
+      required: true
