@@ -1,9 +1,17 @@
+import re
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from uuid import UUID
 
 from startupintel.db.models import StartupScore
+
+# Neo4j has no parameterized syntax for property *names* (only values), so the
+# `{bot_name}_score` property name below is interpolated directly into the
+# Cypher string. Restrict it to a strict identifier allowlist first so a bot
+# name can never break out of the `s.<property>` position (e.g. via spaces,
+# backticks, or braces).
+_VALID_PROPERTY_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
 @dataclass
@@ -87,6 +95,8 @@ class BaseBot(ABC):
         if self.neo4j is None:
             return
         property_name = f"{self.name}_score"
+        if not _VALID_PROPERTY_NAME.fullmatch(property_name):
+            raise ValueError(f"Unsafe Neo4j property name derived from bot name: {self.name!r}")
         async with self.neo4j.session() as session:
             await session.run(
                 f"MATCH (s:Startup {{id: $startup_id}}) SET s.{property_name} = $score",
