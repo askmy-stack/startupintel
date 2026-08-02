@@ -42,18 +42,24 @@ class Startup(Base):
 class StartupScore(Base):
     __tablename__ = "startup_scores"
     __table_args__ = (
-        UniqueConstraint("startup_id", "bot_name", "computed_at", name="uq_startup_bot_computed_at"),
+        UniqueConstraint(
+            "startup_id", "bot_name", "computed_at", name="uq_startup_bot_computed_at"
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    startup_id: Mapped[UUID] = mapped_column(ForeignKey("startups.id", ondelete="CASCADE"), index=True)
+    startup_id: Mapped[UUID] = mapped_column(
+        ForeignKey("startups.id", ondelete="CASCADE"), index=True
+    )
     bot_name: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
     score: Mapped[float] = mapped_column(Float, nullable=False)
     signal_breakdown: Mapped[dict] = mapped_column(JSONB, default=dict)
     llm_diagnosis: Mapped[str | None] = mapped_column(Text)
     similar_cases: Mapped[list] = mapped_column(JSONB, default=list)
     raw_signals: Mapped[dict] = mapped_column(JSONB, default=dict)
-    computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    computed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
 
     startup: Mapped[Startup] = relationship(back_populates="scores")
 
@@ -114,9 +120,13 @@ class HeadcountSnapshot(Base):
     __tablename__ = "headcount_snapshots"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    startup_id: Mapped[UUID] = mapped_column(ForeignKey("startups.id", ondelete="CASCADE"), index=True)
+    startup_id: Mapped[UUID] = mapped_column(
+        ForeignKey("startups.id", ondelete="CASCADE"), index=True
+    )
     headcount: Mapped[int] = mapped_column(Integer, nullable=False)
-    snapshot_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    snapshot_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
     source: Mapped[str] = mapped_column(String(80), nullable=False)
 
     startup: Mapped[Startup] = relationship(back_populates="headcount_snapshots")
@@ -126,13 +136,16 @@ class SignalEvent(Base):
     __tablename__ = "signal_events"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    startup_id: Mapped[UUID] = mapped_column(ForeignKey("startups.id", ondelete="CASCADE"), index=True)
+    startup_id: Mapped[UUID] = mapped_column(
+        ForeignKey("startups.id", ondelete="CASCADE"), index=True
+    )
     event_type: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
     payload: Mapped[dict] = mapped_column(JSONB, default=dict)
-    emitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    emitted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
 
     startup: Mapped[Startup] = relationship(back_populates="signal_events")
-
 
 
 class Organization(Base):
@@ -163,7 +176,9 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     first_name: Mapped[str | None] = mapped_column(String(100))
     last_name: Mapped[str | None] = mapped_column(String(100))
-    role: Mapped[str] = mapped_column(String(20), default="analyst", index=True)  # admin, analyst, viewer
+    role: Mapped[str] = mapped_column(
+        String(20), default="analyst", index=True
+    )  # admin, analyst, viewer
     is_active: Mapped[bool] = mapped_column(default=True)
     email_verified: Mapped[bool] = mapped_column(default=False)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -216,10 +231,14 @@ class APIKey(Base):
     __tablename__ = "api_keys"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    organization_id: Mapped[UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), index=True
+    )
     user_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    key_prefix: Mapped[str] = mapped_column(String(8), nullable=False, index=True)  # First 8 chars for identification
+    key_prefix: Mapped[str] = mapped_column(
+        String(8), nullable=False, index=True
+    )  # First 8 chars for identification
     key_hash: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     scopes: Mapped[list] = mapped_column(JSONB, default=list)  # ["read", "write", "admin"]
     rate_limit_per_minute: Mapped[int] = mapped_column(Integer, default=60)
@@ -290,5 +309,3 @@ class UploadedFile(Base):
         if self.virus_scan_status == "infected":
             return False
         return True
-
-
