@@ -199,8 +199,17 @@ class RefreshToken(Base):
     user: Mapped[User] = relationship(back_populates="refresh_tokens")
 
     @property
+    def is_expired(self) -> bool:
+        """True when expires_at is in the past (timezone-safe)."""
+        expires = self.expires_at
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=UTC)
+        return expires < utcnow()
+
+    @property
     def is_revoked(self) -> bool:
-        return self.revoked_at is not None or self.expires_at < utcnow()
+        """True when explicitly revoked or past expires_at."""
+        return self.revoked_at is not None or self.is_expired
 
 
 class APIKey(Base):

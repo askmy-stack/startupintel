@@ -85,6 +85,31 @@ async def test_refresh_revoked_token_rejects(client: AsyncClient):
     assert resp.status_code == 401
 
 
+async def test_refresh_expired_token_rejects(client: AsyncClient, db_session):
+    """Expired refresh tokens must not rotate into a new pair (#41)."""
+    from datetime import UTC, datetime, timedelta
+    import hashlib
+
+    from sqlalchemy import select
+
+    from startupintel.db.models import RefreshToken
+
+    await _register(client)
+    tokens = await _login(client)
+    token_hash = hashlib.sha256(tokens["refresh_token"].encode()).hexdigest()
+
+    result = await db_session.execute(
+        select(RefreshToken).where(RefreshToken.token_hash == token_hash)
+    )
+    row = result.scalar_one()
+    row.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+    await db_session.commit()
+
+    resp = await client.post("/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+    assert resp.status_code == 401
+    assert "expired" in resp.json()["detail"].lower()
+
+
 async def test_me_returns_profile(client: AsyncClient):
     await _register(client)
     tokens = await _login(client)

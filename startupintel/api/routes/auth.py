@@ -128,6 +128,7 @@ async def refresh(
     from uuid import UUID
     user_id = UUID(payload["sub"])
     token_hash = hashlib.sha256(request.refresh_token.encode()).hexdigest()
+    now = datetime.now(UTC)
 
     stmt = (
         select(RefreshToken)
@@ -135,11 +136,31 @@ async def refresh(
             RefreshToken.token_hash == token_hash,
             RefreshToken.user_id == user_id,
             RefreshToken.revoked_at.is_(None),
+            RefreshToken.expires_at > now,
         )
     )
     db_token = (await db.execute(stmt)).scalar_one_or_none()
 
-    if not db_token or db_token.is_revoked:
+    if not db_token:
+        # Distinguish revoked vs expired for clearer client handling when possible.
+        expired_or_revoked = (
+            select(RefreshToken)
+            .where(
+                RefreshToken.token_hash == token_hash,
+                RefreshToken.user_id == user_id,
+            )
+        )
+        existing = (await db.execute(expired_or_revoked)).scalar_one_or_none()
+        if existing is not None and existing.is_expired and existing.revoked_at is None:
+            detail = "Refresh token expired"
+        else:
+            detail = "Refresh token revoked or expired"
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=detail,
+        )
+
+    if db_token.is_expired or db_token.revoked_at is not None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token revoked or expired",
