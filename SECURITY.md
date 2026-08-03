@@ -24,6 +24,8 @@ land.
   short-lived access tokens plus refresh tokens (hashed with SHA-256 in the
   database) via `/auth/register`, `/auth/login`, `/auth/refresh`,
   `/auth/logout`, and `/auth/me`. Passwords are hashed with bcrypt.
+  Refresh rotation requires a non-revoked token whose `expires_at` is still in
+  the future; expired tokens return 401 and are not rotated.
 - An `APIKey` model (`si_`-prefixed, SHA-256 hashed, with scopes and rate
   limits) exists in the schema, but no route currently authenticates via it —
   JWT bearer tokens are the active mechanism.

@@ -58,7 +58,7 @@ airflow = [
 dev = [
   "pytest>=8.2.0",
   "pytest-asyncio>=0.23.6",
-  "ruff>=0.4.4",
+  "ruff>=0.4.4,<0.16",
   "pre-commit>=3.7.0",
 ]
 
