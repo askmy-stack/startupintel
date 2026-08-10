@@ -146,3 +146,16 @@ def create_password_reset_token(user_id: UUID) -> str:
     }
     
     return jwt.encode(to_encode, settings.api_secret_key, algorithm="HS256")
+
+def create_email_verification_token(user_id: UUID) -> str:
+    """Create a short-lived JWT used to verify a newly registered email."""
+    settings = get_settings()
+    expire = datetime.now(UTC) + timedelta(hours=48)
+    payload = {
+        "sub": str(user_id),
+        "type": "email_verify",
+        "exp": expire,
+        "iat": datetime.now(UTC),
+    }
+    return jwt.encode(payload, settings.api_secret_key, algorithm="HS256")
+

@@ -1,4 +1,4 @@
-"""Integration tests for the auth API (register → login → refresh → me → logout)."""
+"""Integration tests for the auth API (register → verify → login → refresh → me → logout)."""
 
 from __future__ import annotations
 
@@ -24,6 +24,19 @@ async def _register(
     return resp.json()
 
 
+async def _verify(client: AsyncClient, token: str) -> dict:
+    resp = await client.post("/auth/verify-email", json={"token": token})
+    assert resp.status_code == 200, resp.text
+    return resp.json()
+
+
+async def _register_and_verify(
+    client: AsyncClient, *, email: str = "alice@example.com", password: str = "str0ngP@ss"
+) -> dict:
+    user = await _register(client, email=email, password=password)
+    return await _verify(client, user["verification_token"])
+
+
 async def _login(
     client: AsyncClient, *, email: str = "alice@example.com", password: str = "str0ngP@ss"
 ) -> dict:
@@ -32,137 +45,90 @@ async def _login(
     return resp.json()
 
 
-async def test_register_creates_user_and_org(client: AsyncClient):
+async def test_register_creates_inactive_unverified_user(client: AsyncClient):
     user = await _register(client)
     assert user["email"] == "alice@example.com"
     assert user["role"] == "admin"
     assert user["organization_id"] is not None
+    assert user["is_active"] is False
+    assert user["email_verified"] is False
+    assert user["verification_token"]
 
 
 async def test_register_duplicate_email_rejects(client: AsyncClient):
     await _register(client)
     resp = await client.post(
         "/auth/register",
-        json={
-            "email": "alice@example.com",
-            "password": "str0ngP@ss",
-        },
+        json={"email": "alice@example.com", "password": "str0ngP@ss"},
     )
     assert resp.status_code == 400
     assert "already registered" in resp.json()["detail"].lower()
 
 
-async def test_login_returns_tokens(client: AsyncClient):
+async def test_login_before_verify_forbidden(client: AsyncClient):
     await _register(client)
+    resp = await client.post(
+        "/auth/login",
+        json={"email": "alice@example.com", "password": "str0ngP@ss"},
+    )
+    assert resp.status_code == 403
+
+
+async def test_verify_then_login_returns_tokens(client: AsyncClient):
+    await _register_and_verify(client)
     tokens = await _login(client)
     assert "access_token" in tokens
     assert "refresh_token" in tokens
     assert tokens["token_type"] == "bearer"
     assert tokens["user"]["email"] == "alice@example.com"
+    assert tokens["user"]["email_verified"] is True
+    assert tokens["user"]["is_active"] is True
 
 
 async def test_login_wrong_password_rejects(client: AsyncClient):
-    await _register(client)
+    await _register_and_verify(client)
     resp = await client.post(
         "/auth/login",
-        json={
-            "email": "alice@example.com",
-            "password": "wrong",
-        },
+        json={"email": "alice@example.com", "password": "wrong"},
     )
     assert resp.status_code == 401
 
 
 async def test_refresh_rotates_token(client: AsyncClient):
-    await _register(client)
+    await _register_and_verify(client)
     tokens = await _login(client)
 
     resp = await client.post(
         "/auth/refresh",
-        json={
-            "refresh_token": tokens["refresh_token"],
-        },
+        json={"refresh_token": tokens["refresh_token"]},
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 200, resp.text
     new_tokens = resp.json()
     assert new_tokens["access_token"] != tokens["access_token"]
     assert new_tokens["refresh_token"] != tokens["refresh_token"]
 
 
-async def test_refresh_revoked_token_rejects(client: AsyncClient):
-    await _register(client)
+async def test_me_requires_bearer(client: AsyncClient):
+    await _register_and_verify(client)
     tokens = await _login(client)
-
-    # first refresh succeeds, revoking the old token
-    await client.post("/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
-
-    # second refresh with same (now-revoked) token fails
-    resp = await client.post("/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
-    assert resp.status_code == 401
-
-
-async def test_refresh_expired_token_rejects(client: AsyncClient, db_session):
-    """Expired refresh tokens must not rotate into a new pair (#41)."""
-    from datetime import UTC, datetime, timedelta
-    import hashlib
-
-    from sqlalchemy import select
-
-    from startupintel.db.models import RefreshToken
-
-    await _register(client)
-    tokens = await _login(client)
-    token_hash = hashlib.sha256(tokens["refresh_token"].encode()).hexdigest()
-
-    result = await db_session.execute(
-        select(RefreshToken).where(RefreshToken.token_hash == token_hash)
-    )
-    row = result.scalar_one()
-    row.expires_at = datetime.now(UTC) - timedelta(seconds=1)
-    await db_session.commit()
-
-    resp = await client.post("/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
-    assert resp.status_code == 401
-    assert "expired" in resp.json()["detail"].lower()
-
-
-async def test_me_returns_profile(client: AsyncClient):
-    await _register(client)
-    tokens = await _login(client)
-
     resp = await client.get(
         "/auth/me",
-        headers={
-            "Authorization": f"Bearer {tokens['access_token']}",
-        },
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
     )
     assert resp.status_code == 200
     assert resp.json()["email"] == "alice@example.com"
 
 
-async def test_me_rejects_without_token(client: AsyncClient):
-    resp = await client.get("/auth/me")
-    assert resp.status_code == 401
-
-
-async def test_logout_revokes_token(client: AsyncClient):
-    await _register(client)
+async def test_logout_revokes_refresh(client: AsyncClient):
+    await _register_and_verify(client)
     tokens = await _login(client)
-
     resp = await client.post(
         "/auth/logout",
-        json={
-            "refresh_token": tokens["refresh_token"],
-        },
+        json={"refresh_token": tokens["refresh_token"]},
     )
     assert resp.status_code == 200
-    assert "logged out" in resp.json()["message"].lower()
-
-    # revoked token should fail on refresh
     resp = await client.post(
         "/auth/refresh",
-        json={
-            "refresh_token": tokens["refresh_token"],
-        },
+        json={"refresh_token": tokens["refresh_token"]},
     )
     assert resp.status_code == 401

@@ -15,13 +15,16 @@ from startupintel.api.schemas import (
     LoginRequest,
     RefreshTokenRequest,
     RegisterRequest,
+    RegisterResponse,
     TokenResponse,
     UserResponse,
     UserRole,
+    VerifyEmailRequest,
 )
 from startupintel.db.models import Organization, RefreshToken, User
 from startupintel.utils.auth import (
     create_access_token,
+    create_email_verification_token,
     create_refresh_token,
     decode_token,
     get_password_hash,
@@ -31,12 +34,12 @@ from startupintel.utils.auth import (
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     request: RegisterRequest,
     db: AsyncSession = Depends(get_db),
-) -> UserResponse:
-    """Register a new user (auto-creates an organisation)."""
+) -> RegisterResponse:
+    """Register a new user (inactive until email verification)."""
     existing = await db.execute(select(User).where(User.email == request.email))
     if existing.scalar_one_or_none():
         raise HTTPException(
@@ -59,11 +62,41 @@ async def register(
         last_name=request.last_name,
         role=UserRole.ADMIN.value,
         organization_id=org.id,
+        is_active=False,
+        email_verified=False,
     )
     db.add(user)
     await db.commit()
     await db.refresh(user)
 
+    token = create_email_verification_token(user.id)
+    payload = UserResponse.model_validate(user).model_dump()
+    return RegisterResponse(**payload, verification_token=token)
+
+
+@router.post("/verify-email", response_model=UserResponse)
+async def verify_email(
+    request: VerifyEmailRequest,
+    db: AsyncSession = Depends(get_db),
+) -> UserResponse:
+    """Activate an account after the user confirms their email token."""
+    payload = decode_token(request.token)
+    if not payload or payload.get("type") != "email_verify":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification token",
+        )
+
+    from uuid import UUID
+
+    user = await db.get(User, UUID(payload["sub"]))
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    user.email_verified = True
+    user.is_active = True
+    await db.commit()
+    await db.refresh(user)
     return UserResponse.model_validate(user)
 
 
@@ -82,10 +115,10 @@ async def login(
             detail="Invalid email or password",
         )
 
-    if not user.is_active:
+    if not user.is_active or not user.email_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is deactivated",
+            detail="Email not verified — check your inbox or call /auth/verify-email",
         )
 
     access_token, _ = create_access_token(

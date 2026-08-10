@@ -199,6 +199,16 @@ class TokenResponse(BaseModel):
     user: UserResponse
 
 
+class RegisterResponse(UserResponse):
+    """Registration payload including a verification token (emailed in production)."""
+
+    verification_token: str
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+
 class BotRunResponse(BaseModel):
     startup_id: UUID
     bot_name: str
