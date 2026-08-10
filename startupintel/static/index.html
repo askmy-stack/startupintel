@@ -920,9 +920,31 @@
         ::-webkit-scrollbar-thumb:hover {
             background: var(--text-tertiary);
         }
+    
+        .login-modal { position: fixed; inset: 0; background: rgba(0,0,0,.72); display: grid; place-items: center; z-index: 1000; }
+        .login-modal[hidden] { display: none !important; }
+        .login-card { background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: 12px; padding: 1.5rem; width: min(360px, 92vw); display: grid; gap: .75rem; }
+        .login-card label { display: grid; gap: .35rem; font-size: .85rem; color: var(--text-secondary); }
+        .login-card input { background: var(--bg-secondary); border: 1px solid var(--border-default); color: var(--text-primary); border-radius: 8px; padding: .6rem .75rem; }
+        .login-card button { background: var(--accent-gradient); color: white; border: 0; border-radius: 8px; padding: .7rem 1rem; font-weight: 600; cursor: pointer; }
+        .login-error { color: var(--danger); font-size: .85rem; }
+        .login-hint { color: var(--text-tertiary); font-size: .8rem; }
+
     </style>
 </head>
 <body>
+    
+    <div id="login-modal" class="login-modal" hidden>
+      <div class="login-card">
+        <h2>Sign in</h2>
+        <p class="login-hint">JWT is sent as Bearer on API calls.</p>
+        <label>Email <input id="login-email" type="email" autocomplete="username" /></label>
+        <label>Password <input id="login-password" type="password" autocomplete="current-password" /></label>
+        <p id="login-error" class="login-error" hidden></p>
+        <button type="button" id="login-submit">Sign in</button>
+      </div>
+    </div>
+
     <div class="app-container">
         <!-- Header -->
         <header class="header">
@@ -1159,6 +1181,8 @@
                 this.messages = [];
                 this.isStreaming = false;
                 this.apiBaseUrl = '/api';
+                this.authToken = localStorage.getItem('startupintel_access_token');
+                this.authUser = null;
                 
                 this.init();
             }
@@ -1166,6 +1190,7 @@
             init() {
                 this.bindElements();
                 this.bindEvents();
+                this.ensureAuthenticated();
                 this.loadConversations();
                 this.setupRoleBasedUI();
             }
@@ -1265,7 +1290,7 @@
                 try {
                     const response = await fetch(`${this.apiBaseUrl}/chat/send`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: this.authHeaders({ 'Content-Type': 'application/json' }),
                         body: JSON.stringify({
                             message: message,
                             conversation_id: this.conversationId,
